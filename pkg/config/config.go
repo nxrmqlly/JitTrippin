@@ -10,10 +10,12 @@ type Config struct {
 	Project struct {
 		Name string `toml:"name"`
 	} `toml:"project"`
+
 	Pipelines struct {
 		Language string `toml:"language"`
 		Dir      string `toml:"dir"`
 	} `toml:"pipelines"`
+
 	Engine struct {
 		LogLevel string `toml:"log_level"`
 	} `toml:"engine"`

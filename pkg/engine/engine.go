@@ -32,7 +32,7 @@ func ProcessJSON(data string) (*Pipeline, error) {
 		return nil, err
 	}
 
-    return &pipeline, nil
+	return &pipeline, nil
 }
 
 func ProcessJSONFile(path string) (*Pipeline, error) {
@@ -46,7 +46,10 @@ func ProcessJSONFile(path string) (*Pipeline, error) {
 	}
 	defer file.Close()
 
+	var pipeline Pipeline
 
+	decoder := json.NewDecoder(file)
+	decoder.Decode(&pipeline)
 
-	return nil, nil
+	return &pipeline, nil
 }

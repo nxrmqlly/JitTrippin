@@ -1,34 +1,27 @@
 {
-    "name": "example_pipeline",
-    "description": "example description",
+    "name": "JitTrippin Whimsical Funsies Pipeline",
+    "description": "Ensuring our thingimajig runner actually kicks butt",
     "jobs": [
         {
-            "name": "example_job",
-            "image": "ubuntu",
+            "name": "setup-and-verify",
+            "image": "alpine:latest",
+            "env": {
+                "APP_ENVIRONMENT": "local-sandbox",
+                "BUILD_USER": "nxrmqlly"
+            },
             "depends_on": [],
-            "env": {},
             "steps": [
                 {
-                    "name": "example step",
-                    "cmd": "echo hello"
+                    "name": "Who Am I",
+                    "cmd": "whoami"
                 },
                 {
-                    "name": "yet another step",
-                    "cmd": "echo world"
-                }
-            ]
-        },
-        {
-            "name": "job_two",
-            "image": "ubuntu",
-            "depends_on": [
-                "example_job"
-            ],
-            "env": {},
-            "steps": [
+                    "name": "Check Env Varz",
+                    "cmd": "echo \"Environment is set to: $APP_ENVIRONMENT by $BUILD_USER\""
+                },
                 {
-                    "name": "evil",
-                    "cmd": "rm -rf /"
+                    "name": "Simulate Work",
+                    "cmd": "echo 'Installing dummy tool...' && sleep 2 && echo 'Done!'"
                 }
             ]
         }

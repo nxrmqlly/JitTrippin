@@ -1,0 +1,12 @@
+# .jtrc
+# the configuration file for JitTrippin
+
+[project]
+name = "jittrippin"
+
+[pipelines]
+language = "go"
+dir = ".jt/"
+
+[engine]
+log_level = "debug"

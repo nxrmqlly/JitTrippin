@@ -1,0 +1,36 @@
+{
+    "name": "example_pipeline",
+    "description": "example description",
+    "jobs": [
+        {
+            "name": "example_job",
+            "image": "ubuntu",
+            "depends_on": [],
+            "env": {},
+            "steps": [
+                {
+                    "name": "example step",
+                    "cmd": "echo hello"
+                },
+                {
+                    "name": "yet another step",
+                    "cmd": "echo world"
+                }
+            ]
+        },
+        {
+            "name": "job_two",
+            "image": "ubuntu",
+            "depends_on": [
+                "example_job"
+            ],
+            "env": {},
+            "steps": [
+                {
+                    "name": "evil",
+                    "cmd": "rm -rf /"
+                }
+            ]
+        }
+    ]
+}

@@ -1,39 +1,9 @@
-// // copied from https://github.com/docker/go-sdk README
-// package main
-
-// import (
-// 	"context"
-// 	"io"
-// 	"os"
-
-// 	"github.com/docker/go-sdk/container"
-// 	"github.com/docker/go-sdk/container/wait"
-// )
-
-// func main() {
-
-// 	ctr, err := container.Run(
-// 		context.Background(),
-// 		container.WithImage("alpine:latest"),
-// 		container.WithCmd("echo", "hello world"),
-// 		container.WithWaitStrategy(wait.ForLog("hello world")),
-// 	)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	logs, err := ctr.Logs(context.Background())
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	io.Copy(os.Stdout, logs)
-
-// 	err = ctr.Terminate(context.Background())
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// }
+// THIS FILE IS PURE AISLOP.
+// THIS FILE IS PURE AISLOP.
+// THIS FILE IS PURE AISLOP.
+// THIS FILE IS PURE AISLOP.
+// THIS FILE IS PURE AISLOP.
+// THIS FILE IS PURE AISLOP.
 
 package main
 
@@ -47,42 +17,36 @@ import (
 )
 
 func main() {
-	// 1. Define a mock intermediate JSON string matching your engine's blueprint
-	// rawJSON := `{
-	// 	"name": "Local Test Pipeline",
-	// 	"description": "Validating the engine to runner link",
-	// 	"jobs": [
-	// 		{
-	// 			"name": "build",
-	// 			"image": "alpine:latest",
-	// 			"steps": [
-	// 				{"name": "Update packages", "cmd": "apk update"},
-	// 				{"name": "Verify dependencies", "cmd": "echo 'All clear'"}
-	// 			]
-	// 		}
-	// 	]
-	// }`
+	ctx := context.Background()
+	pipelinePath := "example_pipeline.json"
 
-	// 2. The Engine Engines: Process the JSON raw data
-	pipeline, err := engine.ProcessJSONFile("./example_pipeline.json")
+	fmt.Printf("🔍 Reading pipeline file: %s...\n", pipelinePath)
+
+	// 1. The Engine Engines (parse the pipeline config)
+	pipeline, err := engine.ProcessJSONFile(pipelinePath)
 	if err != nil {
-		fmt.Printf("Engine failed to parse configuration: %v\n", err)
+		fmt.Fprintf(os.Stderr, "❌ Engine failed to parse JSON file: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Loaded Pipeline: %s - %s\n", pipeline.Name, pipeline.Description)
+	fmt.Printf("🚀 Starting Pipeline: %q\n", pipeline.Name)
+	fmt.Printf("📋 Description: %s\n\n", pipeline.Description)
 
-	// 3. The Runner Runs: Execute the jobs sequentially
+	// 2. Loop through our jobs and run them using our runner
 	for _, job := range pipeline.Jobs {
-		fmt.Printf("\n--- Triggering Runner for Job: %s ---\n", job.Name)
+		fmt.Printf("=========================================\n")
+		fmt.Printf("🎬 Executing Job: %s (Image: %s)\n", job.Name, job.Image)
+		fmt.Printf("=========================================\n")
 
-		// Run your minimal loop implementation
-		err := runner.RunJob(context.Background(), job, os.Stdout, os.Stderr)
+		// The Runner Runs (execute the job step-by-step and stream logs to terminal)
+		err := runner.RunJob(ctx, job, os.Stdout, os.Stderr)
 		if err != nil {
-			fmt.Printf("Execution failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "\n❌ Job %q failed: %v\n", job.Name, err)
 			os.Exit(1)
 		}
+
+		fmt.Printf("\n🎉 Job %q finished successfully!\n", job.Name)
 	}
 
-	fmt.Println("\nAll jobs successfully sent through the pipeline!")
+	fmt.Println("\n🏁 All pipeline tasks completed successfully.")
 }

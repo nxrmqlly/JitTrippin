@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 
+	// "github.com/docker/docker/pkg/stdcopy/"
 	"github.com/docker/go-sdk/container"
+	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 )
 
@@ -19,14 +21,13 @@ func RunJob(ctx context.Context, job engine.Job, stdout io.Writer, stderr io.Wri
 		container.WithImage(job.Image),
 		container.WithCmd("tail", "-f", "/dev/null"),
 		container.WithEnv(job.Env),
-		// container.WithWaitStrategy(wait.ForExec())
 	)
 
 	if err != nil {
 		return fmt.Errorf("unable to create container for job: '%s': %w", job.Name, err)
 	}
 
-	defer cont.Terminate(ctx)
+	defer cont.Terminate(ctx, container.TerminateTimeout(0))
 
 	for idx, step := range job.Steps {
 		// helper so I dont have to rewrite this all the time
@@ -40,17 +41,7 @@ func RunJob(ctx context.Context, job engine.Job, stdout io.Writer, stderr io.Wri
 			return fmt.Errorf("step %s failed: %w", jobStepIdx, err)
 		}
 
-		// data, err := io.ReadAll(output)
-		// if err != nil {
-		// 	return fmt.Errorf("cannot read container output for step %s: %v", jobStepIdx, err)
-		// }
-
-		var writer io.Writer = stdout
-		if exitCode != 0 {
-			writer = stderr
-		}
-
-		if _, err := io.Copy(writer, output); err != nil {
+		if _, err := stdcopy.StdCopy(stdout, stderr, output); err != nil {
 			return fmt.Errorf("cannot return output stream for step %s: %w", jobStepIdx, err)
 		}
 

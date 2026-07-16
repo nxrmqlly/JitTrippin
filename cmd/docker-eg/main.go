@@ -39,8 +39,8 @@ func main() {
 		fmt.Printf("=========================================\n")
 
 		// The Runner Runs (execute the job step-by-step and stream logs to terminal)
-		err := runner.RunJob(ctx, job, os.Stdout, os.Stderr)
-		if err != nil {
+		jr := runner.JobRunner{}
+		if err := jr.RunJob(ctx, job, os.Stdout, os.Stderr); err != nil {
 			fmt.Fprintf(os.Stderr, "\n❌ Job %q failed: %v\n", job.Name, err)
 			os.Exit(1)
 		}

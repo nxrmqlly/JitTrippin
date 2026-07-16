@@ -7,9 +7,7 @@ import (
 
 func ProcessJSON(data string) (*Pipeline, error) {
 	var pipeline Pipeline
-	err := json.Unmarshal([]byte(data), &pipeline)
-
-	if err != nil {
+	if err := json.Unmarshal([]byte(data), &pipeline); err != nil {
 		return nil, err
 	}
 

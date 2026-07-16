@@ -23,3 +23,19 @@ func IndexOf[T comparable](s []T, v T) int {
 	}
 	return -1
 }
+
+func PopBack[T any](s *[]T) (T, bool) {
+	if len(*s) == 0 {
+		var zero T
+		return zero, false
+	}
+	last := len(*s) - 1
+	element := (*s)[last]
+
+	// zero out to avoid memory leaks if T is a pointer
+	var zero T
+	(*s)[last] = zero
+
+	*s = (*s)[:last]
+	return element, true
+}

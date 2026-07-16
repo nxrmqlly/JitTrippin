@@ -12,11 +12,9 @@ import (
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 )
 
-type Runner interface {
-	RunJob(ctx context.Context, job engine.Job, stdout io.Writer, stderr io.Writer) error
-}
+type JobRunner struct{}
 
-func RunJob(ctx context.Context, job engine.Job, stdout io.Writer, stderr io.Writer) error {
+func (jr *JobRunner) RunJob(ctx context.Context, job engine.Job, stdout io.Writer, stderr io.Writer) error {
 	c, err := sdkContainer.Run(
 		ctx,
 		sdkContainer.WithImage(job.Image),

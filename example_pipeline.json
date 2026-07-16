@@ -1,6 +1,6 @@
 {
-    "name": "JitTrippin Whimsical Funsies Pipeline",
-    "description": "Ensuring our thingimajig runner actually kicks butt",
+    "name": "JitTrippin Chaos Monkey Pipeline",
+    "description": "#aislop_is_funny #australia",
     "jobs": [
         {
             "name": "setup-and-verify",
@@ -21,7 +21,29 @@
                 },
                 {
                     "name": "Simulate Work",
-                    "cmd": "echo 'Installing dummy tool...' && sleep 2 && echo 'Done!'"
+                    "cmd": "echo 'Installing dummy tool...' && sleep 3 && echo 'Done!'"
+                }
+            ]
+        },
+        {
+            "name": "faulty-verification-job",
+            "image": "alpine:latest",
+            "env": {},
+            "depends_on": [
+                "setup-and-verify"
+            ],
+            "steps": [
+                {
+                    "name": "Healthy Pre-check",
+                    "cmd": "echo 'Running sanity checks before exploding...'"
+                },
+                {
+                    "name": "Intentional Failure",
+                    "cmd": "echo 'Oh no, missing critical file!' >&2 && exit 1"
+                },
+                {
+                    "name": "Skipped Step",
+                    "cmd": "echo 'This step should never execute because the previous one errored out.'"
                 }
             ]
         }

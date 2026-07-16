@@ -14,3 +14,12 @@ func JobStepIndexMax(jobName, stepName string, index, maxIndex int) string {
 		strconv.Itoa(index) + "/" +
 		strconv.Itoa(maxIndex) + ")"
 }
+
+func IndexOf[T comparable](s []T, v T) int {
+	for i, item := range s {
+		if item == v {
+			return i
+		}
+	}
+	return -1
+}

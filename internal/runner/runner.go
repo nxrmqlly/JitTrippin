@@ -8,6 +8,7 @@ import (
 	sdkContainer "github.com/docker/go-sdk/container"
 	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/client"
+	"github.com/nxrmqlly/jittrippin/helpers"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 )
 
@@ -29,9 +30,10 @@ func RunJob(ctx context.Context, job engine.Job, stdout io.Writer, stderr io.Wri
 
 	defer c.Terminate(ctx, sdkContainer.TerminateTimeout(0))
 
+	maxSteps := len(job.Steps)
 	for idx, step := range job.Steps {
 		// helper so I dont have to rewrite this all the time
-		jobStepIdx := fmt.Sprintf("'%s/%s' (%d)", job.Name, step.Name, idx)
+		jobStepIdx := helpers.JobStepIndexMax(job.Name, step.Name, idx+1, maxSteps)
 
 		// deprecated: is not correct and polls ExecInspect every 100ms. Also doesn't provide interface
 		// for reading stdout/stderr ("output") in real time. This also risks hanging for long
@@ -64,7 +66,6 @@ func RunJob(ctx context.Context, job engine.Job, stdout io.Writer, stderr io.Wri
 		if err != nil {
 			return fmt.Errorf("error starting exec for step %s: %w", jobStepIdx, err)
 		}
-		defer eaRes.HijackedResponse.Close()
 		output := eaRes.HijackedResponse.Reader
 
 		// 2. drain output to stdout and stderr
@@ -82,6 +83,7 @@ func RunJob(ctx context.Context, job engine.Job, stdout io.Writer, stderr io.Wri
 		if exitCode != 0 {
 			return fmt.Errorf("step %s failed with exit code %d", jobStepIdx, exitCode)
 		}
+		eaRes.HijackedResponse.Close()
 	}
 
 	return nil

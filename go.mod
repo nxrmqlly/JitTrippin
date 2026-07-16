@@ -5,6 +5,8 @@ go 1.26.5
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/docker/go-sdk/container v0.1.0-alpha016
+	github.com/moby/moby/api v1.52.0
+	github.com/moby/moby/client v0.1.0
 )
 
 require (
@@ -33,8 +35,6 @@ require (
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.1.0 // indirect
-	github.com/moby/moby/api v1.52.0 // indirect
-	github.com/moby/moby/client v0.1.0 // indirect
 	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/sys/sequential v0.6.0 // indirect
 	github.com/moby/sys/user v0.4.0 // indirect

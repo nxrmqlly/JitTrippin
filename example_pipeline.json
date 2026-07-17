@@ -1,49 +1,86 @@
 {
-    "name": "JitTrippin Chaos Monkey Pipeline",
-    "description": "#aislop_is_funny #australia",
+    "name": "Linear Scheduler Test",
+    "description": "Exercises dependency ordering.",
     "jobs": [
         {
-            "name": "setup-and-verify",
+            "name": "setup",
             "image": "alpine:latest",
-            "env": {
-                "APP_ENVIRONMENT": "local-sandbox",
-                "BUILD_USER": "nxrmqlly"
-            },
             "depends_on": [],
             "steps": [
                 {
-                    "name": "Who Am I",
-                    "cmd": "whoami"
+                    "name": "start",
+                    "cmd": "echo '[setup] starting' && sleep 2"
                 },
                 {
-                    "name": "Check Env Varz",
-                    "cmd": "echo \"Environment is set to: $APP_ENVIRONMENT by $BUILD_USER\""
-                },
-                {
-                    "name": "Simulate Work",
-                    "cmd": "echo 'Installing dummy tool...' && sleep 3 && echo 'Done!'"
+                    "name": "finish",
+                    "cmd": "echo '[setup] done'"
                 }
             ]
         },
         {
-            "name": "faulty-verification-job",
+            "name": "lint",
             "image": "alpine:latest",
-            "env": {},
             "depends_on": [
-                "setup-and-verify"
+                "setup"
             ],
             "steps": [
                 {
-                    "name": "Healthy Pre-check",
-                    "cmd": "echo 'Running sanity checks before exploding...'"
-                },
+                    "name": "lint",
+                    "cmd": "echo '[lint] running' && sleep 1 && echo '[lint] passed'"
+                }
+            ]
+        },
+        {
+            "name": "build",
+            "image": "alpine:latest",
+            "depends_on": [
+                "setup"
+            ],
+            "steps": [
                 {
-                    "name": "Intentional Failure",
-                    "cmd": "echo 'Oh no, missing critical file!' >&2 && exit 1"
-                },
+                    "name": "build",
+                    "cmd": "echo '[build] compiling' && sleep 3 && echo '[build] complete'"
+                }
+            ]
+        },
+        {
+            "name": "test",
+            "image": "alpine:latest",
+            "depends_on": [
+                "build"
+            ],
+            "steps": [
                 {
-                    "name": "Skipped Step",
-                    "cmd": "echo 'This step should never execute because the previous one errored out.'"
+                    "name": "test",
+                    "cmd": "echo '[test] executing tests' && sleep 2 && echo '[test] passed'"
+                }
+            ]
+        },
+        {
+            "name": "package",
+            "image": "alpine:latest",
+            "depends_on": [
+                "build"
+            ],
+            "steps": [
+                {
+                    "name": "package",
+                    "cmd": "echo '[package] creating artifact' && sleep 1 && echo '[package] artifact ready'"
+                }
+            ]
+        },
+        {
+            "name": "deploy",
+            "image": "alpine:latest",
+            "depends_on": [
+                "lint",
+                "test",
+                "package"
+            ],
+            "steps": [
+                {
+                    "name": "deploy",
+                    "cmd": "echo '[deploy] deploying...' && sleep 2 && echo '[deploy] success'"
                 }
             ]
         }

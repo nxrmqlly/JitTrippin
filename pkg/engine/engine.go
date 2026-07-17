@@ -102,15 +102,11 @@ func (e *Engine) execute(ctx context.Context, p *Pipeline) error {
 		go e.worker(ctx, jobs, results, &wg)
 	}
 
-	dispatch := func(job *Job) {
-		jobs <- job
-	}
-
 	dispatched := 0
 	for i := range p.Jobs {
 		job := &p.Jobs[i]
 		if indegree[job.Name] == 0 {
-			dispatch(job)
+			jobs <- job
 			dispatched++
 		}
 	}
@@ -139,8 +135,7 @@ func (e *Engine) execute(ctx context.Context, p *Pipeline) error {
 			indegree[child]--
 
 			if indegree[child] == 0 {
-				// jobs <- jobMap[child]
-				dispatch(jobMap[child])
+				jobs <- jobMap[child]
 				dispatched++
 			}
 		}

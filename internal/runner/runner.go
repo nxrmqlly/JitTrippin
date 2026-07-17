@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	sdkContainer "github.com/docker/go-sdk/container"
 	"github.com/moby/moby/api/pkg/stdcopy"
@@ -26,7 +27,13 @@ func (jr *JobRunner) RunJob(ctx context.Context, job engine.Job, stdout io.Write
 		return fmt.Errorf("unable to create container for job: '%s': %w", job.Name, err)
 	}
 
-	defer c.Terminate(ctx, sdkContainer.TerminateTimeout(0))
+	defer func() {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+		defer cancel()
+		if err := c.Terminate(cleanupCtx, sdkContainer.TerminateTimeout(0)); err != nil {
+			fmt.Fprintf(stderr, "warning: failed to clean up container '%s' for job '%s': %v\n", c.ID(), job.Name, err)
+		}
+	}()
 
 	maxSteps := len(job.Steps)
 	for idx, step := range job.Steps {
@@ -64,6 +71,7 @@ func (jr *JobRunner) RunJob(ctx context.Context, job engine.Job, stdout io.Write
 		if err != nil {
 			return fmt.Errorf("error starting exec for step %s: %w", jobStepIdx, err)
 		}
+		defer eaRes.HijackedResponse.Close()
 		output := eaRes.HijackedResponse.Reader
 
 		// 2. drain output to stdout and stderr
@@ -81,7 +89,6 @@ func (jr *JobRunner) RunJob(ctx context.Context, job engine.Job, stdout io.Write
 		if exitCode != 0 {
 			return fmt.Errorf("step %s failed with exit code %d", jobStepIdx, exitCode)
 		}
-		eaRes.HijackedResponse.Close()
 	}
 
 	return nil

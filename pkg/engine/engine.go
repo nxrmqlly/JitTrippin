@@ -38,14 +38,29 @@ func (e *Engine) maxParallel() int {
 
 func (e *Engine) worker(ctx context.Context, jobs <-chan *Job, results chan<- JobResult, wg *sync.WaitGroup) {
 	defer wg.Done()
-	for job := range jobs {
-		if err := ctx.Err(); err != nil {
-			results <- JobResult{job: job, err: err}
-			continue
-		}
 
-		err := e.Runner.RunJob(ctx, *job, e.Stdout, e.Stderr)
-		results <- JobResult{job: job, err: err}
+	// worker keeps "polling" the channels
+	for {
+		select {
+		case job, ok := <-jobs:
+			// got a job
+			if !ok {
+				return // jobs channel died
+			}
+
+			// just in case: so that cancellation stays deterministic
+			// while also getting fast responsive wait from select
+			if err := ctx.Err(); err != nil {
+				results <- JobResult{job: job, err: err}
+				continue
+			}
+			err := e.Runner.RunJob(ctx, *job, e.Stdout, e.Stderr)
+			results <- JobResult{job: job, err: err}
+
+		case <-ctx.Done():
+			// context cancelled
+			return
+		}
 	}
 }
 

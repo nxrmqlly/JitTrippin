@@ -1,4 +1,4 @@
-// ! DEPRECATED
+package engine
 
 import (
 	"context"
@@ -7,22 +7,16 @@ import (
 	"sync"
 )
 
-const DEFAULTPARALLEL = 4
+const DEFAULTPARALLEL = 12
 
-// [DEPRECATED] Use LocalExecutor and SharedExecutor
-type Engine struct {
+type LocalExecutor struct {
 	Runner      Runner
 	Stdout      io.Writer
 	Stderr      io.Writer
 	MaxParallel int
 }
 
-type JobResult struct {
-	job *Job
-	err error
-}
-
-func (e *Engine) maxParallel() int {
+func (e *LocalExecutor) maxParallel() int {
 	if e.MaxParallel > 0 {
 		return e.MaxParallel
 	}
@@ -37,7 +31,7 @@ func (e *Engine) maxParallel() int {
 
 }
 
-func (e *Engine) worker(ctx context.Context, jobs <-chan *Job, results chan<- JobResult, wg *sync.WaitGroup) {
+func (e *LocalExecutor) worker(ctx context.Context, jobs <-chan *Job, results chan<- JobResult, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	// worker keeps "polling" the channels
@@ -64,9 +58,8 @@ func (e *Engine) worker(ctx context.Context, jobs <-chan *Job, results chan<- Jo
 	}
 }
 
-func (e *Engine) execute(ctx context.Context, p *Pipeline) error {
+func (e *LocalExecutor) execute(ctx context.Context, p *Pipeline) error {
 	scheduler := NewScheduler(p)
-
 	n := len(p.Jobs)
 	jobs := make(chan *Job, n)
 	results := make(chan JobResult, n)
@@ -115,50 +108,12 @@ func (e *Engine) execute(ctx context.Context, p *Pipeline) error {
 	wg.Wait()
 
 	return firstErr
-
-	// ===== LINEAR SCHEDULER =====
-
-	// ready := []*Job{}
-
-	// ? QOL: we dont use this as this is randomly ordered
-	// ? It's just nicer for CI/CD pipelines
-	// for jobName, deg := range indegree
-
-	// for i := range p.Jobs {
-	// 	job := &p.Jobs[i]
-	// 	if indegree[job.Name] == 0 {
-	// 		ready = append(ready, job)
-	// 	}
-	// }
-
-	// for len(ready) != 0 {
-	// 	if next, ok := helpers.PopBack(&ready); ok {
-	// 		if err := e.Runner.RunJob(ctx, *next, e.Stdout, e.Stderr); err != nil {
-	// 			return err
-	// 		}
-
-	// 		processed++
-
-	// 		for _, child := range children[next.Name] {
-	// 			if indegree[child]--; indegree[child] == 0 {
-	// 				ready = append(ready, jobMap[child])
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	// if processed != len(p.Jobs) {
-	// 	panic("scheduler bug: pipeline was not a DAG")
-	// }
 }
 
-// Run validates the pipeline and executes all jobs in a pipeline
-func (e *Engine) Run(ctx context.Context, p *Pipeline) error {
+func (e *LocalExecutor) Run(ctx context.Context, p *Pipeline, stdout, stderr io.Writer) error {
 	if err := p.Validate(); err != nil {
 		return err
 	}
-	if err := e.execute(ctx, p); err != nil {
-		return err
-	}
+
 	return nil
 }

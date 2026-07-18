@@ -27,3 +27,12 @@ type Step struct {
 type Runner interface {
 	RunJob(ctx context.Context, job Job, stdout io.Writer, stderr io.Writer) error
 }
+
+type Executor interface {
+	Run(ctx context.Context, pipeline *Pipeline) error
+}
+
+type JobResult struct {
+	job *Job
+	err error
+}

@@ -18,7 +18,7 @@ import (
 )
 
 func main() {
-	const pipelinePath = "example_pipeline.json"
+	const pipelinePath = "_example/concurrency_pipeline.json"
 
 	fmt.Printf("🔍 Reading pipeline: %s\n", pipelinePath)
 
@@ -32,7 +32,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	e := engine.Engine{
+	e := engine.LocalExecutor{
 		Runner:      &runner.JobRunner{},
 		Stdout:      os.Stdout,
 		Stderr:      os.Stderr,
@@ -41,7 +41,7 @@ func main() {
 
 	fmt.Printf("🚀 Running pipeline %q\n\n", p.Name)
 
-	if err := e.Run(context.Background(), p); err != nil {
+	if err := e.Run(context.Background(), p, os.Stdout, os.Stderr); err != nil {
 		log.Fatalf("❌ Pipeline failed: %v", err)
 	}
 

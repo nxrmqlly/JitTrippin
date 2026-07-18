@@ -13,9 +13,9 @@ import (
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 )
 
-type JobRunner struct{}
+type DockerRunner struct{}
 
-func (jr *JobRunner) RunJob(ctx context.Context, job engine.Job, stdout io.Writer, stderr io.Writer) error {
+func (jr *DockerRunner) RunJob(ctx context.Context, job *engine.Job, stdout io.Writer, stderr io.Writer) error {
 	c, err := sdkContainer.Run(
 		ctx,
 		sdkContainer.WithImage(job.Image),

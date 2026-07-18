@@ -9,6 +9,7 @@ import (
 
 const DEFAULTPARALLEL = 12
 
+
 type LocalExecutor struct {
 	Runner      Runner
 	Stdout      io.Writer
@@ -48,7 +49,7 @@ func (e *LocalExecutor) worker(ctx context.Context, jobs <-chan *Job, results ch
 				results <- JobResult{job: job, err: err}
 				continue
 			}
-			err := e.Runner.RunJob(ctx, *job, e.Stdout, e.Stderr)
+			err := e.Runner.RunJob(ctx, job, e.Stdout, e.Stderr)
 			results <- JobResult{job: job, err: err}
 
 		case <-ctx.Done():
@@ -110,10 +111,14 @@ func (e *LocalExecutor) execute(ctx context.Context, p *Pipeline) error {
 	return firstErr
 }
 
-func (e *LocalExecutor) Run(ctx context.Context, p *Pipeline, stdout, stderr io.Writer) error {
+func (e *LocalExecutor) Run(ctx context.Context, p *Pipeline) error {
 	if err := p.Validate(); err != nil {
 		return err
 	}
+    
+    if err := e.execute(ctx, p); err != nil {
+        return err
+    }
 
 	return nil
 }

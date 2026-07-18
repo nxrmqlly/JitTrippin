@@ -1,3 +1,4 @@
+// ! DEPRECATED
 package engine
 
 import (
@@ -9,6 +10,7 @@ import (
 
 const DEFAULTPARALLEL = 4
 
+// [DEPRECATED] Use LocalExecutor and SharedExecutor
 type Engine struct {
 	Runner      Runner
 	Stdout      io.Writer

@@ -1,19 +1,14 @@
 {
-    "name": "Linear Scheduler Test",
-    "description": "Exercises dependency ordering.",
+    "name": "Concurrency Test",
+    "description": "Tests Kahn scheduler + worker pool",
     "jobs": [
         {
             "name": "setup",
             "image": "alpine:latest",
-            "depends_on": [],
             "steps": [
                 {
-                    "name": "start",
-                    "cmd": "echo '[setup] starting' && sleep 2"
-                },
-                {
-                    "name": "finish",
-                    "cmd": "echo '[setup] done'"
+                    "name": "setup",
+                    "cmd": "echo '[setup] start'; sleep 2; echo '[setup] done'"
                 }
             ]
         },
@@ -26,33 +21,46 @@
             "steps": [
                 {
                     "name": "lint",
-                    "cmd": "echo '[lint] running' && sleep 1 && echo '[lint] passed'"
+                    "cmd": "echo '[lint] start'; sleep 5; echo '[lint] done'"
                 }
             ]
         },
         {
-            "name": "build",
+            "name": "build-linux",
             "image": "alpine:latest",
             "depends_on": [
                 "setup"
             ],
             "steps": [
                 {
-                    "name": "build",
-                    "cmd": "echo '[build] compiling' && sleep 3 && echo '[build] complete'"
+                    "name": "linux",
+                    "cmd": "echo '[linux] compiling'; sleep 3; echo '[linux] done'"
                 }
             ]
         },
         {
-            "name": "test",
+            "name": "build-windows",
             "image": "alpine:latest",
             "depends_on": [
-                "build"
+                "setup"
             ],
             "steps": [
                 {
-                    "name": "test",
-                    "cmd": "echo '[test] executing tests' && sleep 2 && echo '[test] passed'"
+                    "name": "windows",
+                    "cmd": "echo '[windows] compiling'; sleep 4; echo '[windows] done'"
+                }
+            ]
+        },
+        {
+            "name": "unit-tests",
+            "image": "alpine:latest",
+            "depends_on": [
+                "build-linux"
+            ],
+            "steps": [
+                {
+                    "name": "tests",
+                    "cmd": "echo '[tests] running'; sleep 2; echo '[tests] done'"
                 }
             ]
         },
@@ -60,12 +68,14 @@
             "name": "package",
             "image": "alpine:latest",
             "depends_on": [
-                "build"
+                "lint",
+                "build-windows",
+                "unit-tests"
             ],
             "steps": [
                 {
                     "name": "package",
-                    "cmd": "echo '[package] creating artifact' && sleep 1 && echo '[package] artifact ready'"
+                    "cmd": "echo '[package] creating artifact'; sleep 1; echo '[package] done'"
                 }
             ]
         },
@@ -73,14 +83,12 @@
             "name": "deploy",
             "image": "alpine:latest",
             "depends_on": [
-                "lint",
-                "test",
                 "package"
             ],
             "steps": [
                 {
                     "name": "deploy",
-                    "cmd": "echo '[deploy] deploying...' && sleep 2 && echo '[deploy] success'"
+                    "cmd": "echo '[deploy] deploying'; sleep 2; echo '[deploy] success'"
                 }
             ]
         }

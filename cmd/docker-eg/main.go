@@ -10,6 +10,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/nxrmqlly/jittrippin/internal/runner"
@@ -17,36 +18,32 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-	pipelinePath := "example_pipeline.json"
+	const pipelinePath = "example_pipeline.json"
 
-	fmt.Printf("🔍 Reading pipeline file: %s...\n", pipelinePath)
+	fmt.Printf("🔍 Reading pipeline: %s\n", pipelinePath)
 
-	// 1. The Engine Engines (parse the pipeline config)
-	pipeline, err := engine.ProcessJSONFile(pipelinePath)
+	raw, err := os.ReadFile(pipelinePath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "❌ Engine failed to parse JSON file: %v\n", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
-	fmt.Printf("🚀 Starting Pipeline: %q\n", pipeline.Name)
-	fmt.Printf("📋 Description: %s\n\n", pipeline.Description)
-
-	// 2. Loop through our jobs and run them using our runner
-	for _, job := range pipeline.Jobs {
-		fmt.Printf("=========================================\n")
-		fmt.Printf("🎬 Executing Job: %s (Image: %s)\n", job.Name, job.Image)
-		fmt.Printf("=========================================\n")
-
-		// The Runner Runs (execute the job step-by-step and stream logs to terminal)
-		jr := runner.JobRunner{}
-		if err := jr.RunJob(ctx, job, os.Stdout, os.Stderr); err != nil {
-			fmt.Fprintf(os.Stderr, "\n❌ Job %q failed: %v\n", job.Name, err)
-			os.Exit(1)
-		}
-
-		fmt.Printf("\n🎉 Job %q finished successfully!\n", job.Name)
+	p, err := engine.ProcessJSON(string(raw))
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	fmt.Println("\n🏁 All pipeline tasks completed successfully.")
+	e := engine.Engine{
+		Runner:      &runner.JobRunner{},
+		Stdout:      os.Stdout,
+		Stderr:      os.Stderr,
+		MaxParallel: 6,
+	}
+
+	fmt.Printf("🚀 Running pipeline %q\n\n", p.Name)
+
+	if err := e.Run(context.Background(), p); err != nil {
+		log.Fatalf("❌ Pipeline failed: %v", err)
+	}
+
+	fmt.Println("\n🏁 Pipeline completed successfully")
 }

@@ -43,7 +43,6 @@ func (e *Engine) worker(ctx context.Context, jobs <-chan *Job, results chan<- Jo
 	for {
 		select {
 		case job, ok := <-jobs:
-			// got a job
 			if !ok {
 				return // jobs channel died
 			}
@@ -64,29 +63,8 @@ func (e *Engine) worker(ctx context.Context, jobs <-chan *Job, results chan<- Jo
 	}
 }
 
-// execute schedules and runs all jobs in a pipeline
 func (e *Engine) execute(ctx context.Context, p *Pipeline) error {
-	// Internally: we use Kahn's Algorithm to schedule jobs in a pipeline
-	// based on dependencies. We execute all parent jobs (on which other
-	// jobs depend on) and then execute the next set of dependent
-	// processes and so on until all of them execute completely or return
-	// an error.
-	jobMap := make(map[string]*Job, len(p.Jobs))
-	indegree := make(map[string]int, len(p.Jobs))
-	children := make(map[string][]string)
-
-	for i := range p.Jobs {
-		job := &p.Jobs[i]
-
-		jobMap[job.Name] = job
-		indegree[job.Name] = len(job.DependsOn)
-
-		for _, dep := range job.DependsOn {
-			// we dont have to worry about duplicates because our validator
-			// handles that for us. yay!
-			children[dep] = append(children[dep], job.Name)
-		}
-	}
+	scheduler := NewScheduler(p)
 
 	n := len(p.Jobs)
 	jobs := make(chan *Job, n)
@@ -96,29 +74,22 @@ func (e *Engine) execute(ctx context.Context, p *Pipeline) error {
 	defer cancel()
 
 	var wg sync.WaitGroup
-
 	for range e.maxParallel() {
 		wg.Add(1)
 		go e.worker(ctx, jobs, results, &wg)
 	}
 
-	dispatched := 0
-	for i := range p.Jobs {
-		job := &p.Jobs[i]
-		if indegree[job.Name] == 0 {
-			jobs <- job
-			dispatched++
-		}
+	for _, job := range scheduler.Ready() {
+		jobs <- job
 	}
 
-	var firstErr error = nil
-	processed := 0
-
-	for processed < dispatched {
+	var firstErr error
+	for !scheduler.Done() {
 		res := <-results
-		processed++
 
 		if res.err != nil {
+			scheduler.Fail(res.job.Name)
+
 			if firstErr == nil {
 				firstErr = res.err
 				cancel() // unblocks fast exit; stop queued jobs from starting
@@ -128,16 +99,14 @@ func (e *Engine) execute(ctx context.Context, p *Pipeline) error {
 
 		// if any error appears, just drain the rest of the results
 		if firstErr != nil {
+			scheduler.Fail(res.job.Name)
 			continue
 		}
 
-		for _, child := range children[res.job.Name] {
-			indegree[child]--
-
-			if indegree[child] == 0 {
-				jobs <- jobMap[child]
-				dispatched++
-			}
+		// mark job as complete + get next
+		nextJobs := scheduler.Complete(res.job.Name)
+		for _, job := range nextJobs {
+			jobs <- job
 		}
 	}
 

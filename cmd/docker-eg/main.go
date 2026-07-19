@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/nxrmqlly/jittrippin/internal/runner"
+	"github.com/nxrmqlly/jittrippin/pkg/runner"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 )
 

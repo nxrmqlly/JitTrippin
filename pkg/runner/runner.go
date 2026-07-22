@@ -2,94 +2,26 @@ package runner
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"time"
-
-	sdkContainer "github.com/docker/go-sdk/container"
-	"github.com/moby/moby/api/pkg/stdcopy"
-	"github.com/moby/moby/client"
-	"github.com/nxrmqlly/jittrippin/helpers"
-	"github.com/nxrmqlly/jittrippin/pkg/engine"
 )
 
-type DockerRunner struct{}
+// It's possible to make do with just Docker concrete type but this
+// is important for future implementations of backend, like Podman.
+//
+// Every backend must implement both Runner and Execution. Like a plugin
+// system where Runner is the plugin and Execution is the real driver
+type Runner interface {
+	Create(ctx context.Context, config ExecutionCreateConfig) (Execution, error)
+}
 
-func (jr *DockerRunner) RunJob(ctx context.Context, job *engine.Job, stdout io.Writer, stderr io.Writer) error {
-	c, err := sdkContainer.Run(
-		ctx,
-		sdkContainer.WithImage(job.Image),
-		sdkContainer.WithCmd("tail", "-f", "/dev/null"),
-		sdkContainer.WithEnv(job.Env),
-	)
+type Execution interface {
+	Exec(ctx context.Context, cfg ExecConfig) (ExecResult, error)
+	CopyIn(ctx context.Context, reader io.Reader, pathTo string) error
+	CopyOut(ctx context.Context, writer io.Writer, pathFrom string) error
+	Remove(ctx context.Context) error
+}
 
-	if err != nil {
-		return fmt.Errorf("unable to create container for job: '%s': %w", job.Name, err)
-	}
-
-	defer func() {
-		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
-		defer cancel()
-		if err := c.Terminate(cleanupCtx, sdkContainer.TerminateTimeout(0)); err != nil {
-			fmt.Fprintf(stderr, "warning: failed to clean up container '%s' for job '%s': %v\n", c.ID(), job.Name, err)
-		}
-	}()
-
-	maxSteps := len(job.Steps)
-	for idx, step := range job.Steps {
-		// helper so I dont have to rewrite this all the time
-		jobStepIdx := helpers.JobStepIndexMax(job.Name, step.Name, idx+1, maxSteps)
-
-		// deprecated: is not correct and polls ExecInspect every 100ms. Also doesn't provide interface
-		// for reading stdout/stderr ("output") in real time. This also risks hanging for long
-		// commands that may take time to execute. The raw moby/moby/client implementation gives more
-		// control.
-		//
-		// exitCode, output, err := c.Exec(
-		// 	ctx,
-		// 	[]string{"sh", "-c", step.Cmd},
-		// )
-		// if err != nil {
-		// 	return fmt.Errorf("step %s failed: %w", jobStepIdx, err)
-		// }
-
-		contClient := c.Client()
-
-		// 0. create the exec defs
-		ecRes, err := contClient.ExecCreate(ctx, c.ID(), client.ExecCreateOptions{
-			User:         "root",
-			AttachStdout: true,
-			AttachStderr: true,
-			Cmd:          []string{"sh", "-c", step.Cmd},
-		})
-		if err != nil {
-			return fmt.Errorf("error creating exec for step %s: %w", jobStepIdx, err)
-		}
-
-		// 1. attach and start an exec
-		eaRes, err := contClient.ExecAttach(ctx, ecRes.ID, client.ExecAttachOptions{})
-		if err != nil {
-			return fmt.Errorf("error starting exec for step %s: %w", jobStepIdx, err)
-		}
-		defer eaRes.HijackedResponse.Close()
-		output := eaRes.HijackedResponse.Reader
-
-		// 2. drain output to stdout and stderr
-		if _, err := stdcopy.StdCopy(stdout, stderr, output); err != nil {
-			return fmt.Errorf("cannot return output stream for step %s: %w", jobStepIdx, err)
-		}
-
-		// 3. inspect for final exit code
-		eiRes, err := contClient.ExecInspect(ctx, ecRes.ID, client.ExecInspectOptions{})
-		if err != nil {
-			return fmt.Errorf("error inspecting exec for step %s: %w", jobStepIdx, err)
-		}
-		exitCode := eiRes.ExitCode
-
-		if exitCode != 0 {
-			return fmt.Errorf("step %s failed with exit code %d", jobStepIdx, exitCode)
-		}
-	}
-
-	return nil
+type ExecutionCreateConfig struct {
+	Image string
+	Env   map[string]string
 }

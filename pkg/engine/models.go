@@ -1,10 +1,5 @@
 package engine
 
-import (
-	"context"
-	"io"
-)
-
 type Pipeline struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -22,10 +17,6 @@ type Job struct {
 type Step struct {
 	Name string `json:"name"`
 	Cmd  string `json:"cmd"`
-}
-
-type Runner interface {
-	RunJob(ctx context.Context, job *Job, stdout io.Writer, stderr io.Writer) error
 }
 
 type JobResult struct {

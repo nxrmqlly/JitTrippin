@@ -6,14 +6,16 @@ import (
 	"io"
 	"runtime"
 	"sync"
+
+	"github.com/nxrmqlly/jittrippin/pkg/runner"
 )
 
 type WorkItem struct {
 	job *Job
-	pe  *PipelineExecution
+	pe  *PipelineRuntime
 }
 
-type PipelineExecution struct {
+type PipelineRuntime struct {
 	pipeline  *Pipeline
 	scheduler *Scheduler
 	results   chan JobResult
@@ -25,10 +27,10 @@ type PipelineExecution struct {
 	err       error
 }
 
-func NewPipelineExecution(parentCtx context.Context, p *Pipeline, stdout, stderr io.Writer) *PipelineExecution {
+func NewPipelineRuntime(parentCtx context.Context, p *Pipeline, stdout, stderr io.Writer) *PipelineRuntime {
 	ctx, cancel := context.WithCancel(parentCtx)
 
-	return &PipelineExecution{
+	return &PipelineRuntime{
 		pipeline:  p,
 		scheduler: NewScheduler(p),
 		results:   make(chan JobResult, len(p.Jobs)),
@@ -40,7 +42,7 @@ func NewPipelineExecution(parentCtx context.Context, p *Pipeline, stdout, stderr
 	}
 }
 
-func (pe *PipelineExecution) start(queue chan<- WorkItem) {
+func (pe *PipelineRuntime) start(queue chan<- WorkItem) {
 	defer close(pe.done)
 	defer func() {
 		if r := recover(); r != nil {
@@ -86,24 +88,24 @@ func (pe *PipelineExecution) start(queue chan<- WorkItem) {
 
 }
 
-func (pe *PipelineExecution) Done() <-chan struct{} {
+func (pe *PipelineRuntime) Done() <-chan struct{} {
 	return pe.done
 }
 
-func (pe *PipelineExecution) Wait() error {
+func (pe *PipelineRuntime) Wait() error {
 	<-pe.done
 	return pe.err
 }
 
 type SharedExecutor struct {
 	MaxParallel int
-	Runner      Runner
+	Runner      runner.Runner
 
 	queue chan WorkItem
 	wg    sync.WaitGroup
 }
 
-func NewSharedExecutor(runner Runner, maxParallel int) *SharedExecutor {
+func NewSharedExecutor(runner runner.Runner, maxParallel int) *SharedExecutor {
 	e := &SharedExecutor{
 		MaxParallel: maxParallel,
 		Runner:      runner,
@@ -146,8 +148,9 @@ func (e *SharedExecutor) worker() {
 			continue
 		}
 
-		err := e.Runner.RunJob(
+		err := RunJob(
 			work.pe.ctx,
+			e.Runner,
 			work.job,
 			work.pe.stdout,
 			work.pe.stderr,
@@ -164,18 +167,18 @@ func (e *SharedExecutor) spawnWorkers(n int) {
 	}
 }
 
-func (e *SharedExecutor) Submit(ctx context.Context, p *Pipeline, stdout, stderr io.Writer) (*PipelineExecution, error) {
+func (e *SharedExecutor) Submit(ctx context.Context, p *Pipeline, stdout, stderr io.Writer) (*PipelineRuntime, error) {
 	if err := p.Validate(); err != nil {
 		return nil, err
 	}
 
-	pe := NewPipelineExecution(ctx, p, stdout, stderr)
+	pe := NewPipelineRuntime(ctx, p, stdout, stderr)
 	go pe.start(e.queue)
 
 	return pe, nil
 }
 
-func (pe *PipelineExecution) Stop() {
+func (pe *PipelineRuntime) Stop() {
 	pe.cancel()
 	pe.Wait()
 }

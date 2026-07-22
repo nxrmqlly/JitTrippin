@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/nxrmqlly/jittrippin/pkg/runner"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
+	"github.com/nxrmqlly/jittrippin/pkg/runner"
 )
 
 func main() {
@@ -35,7 +35,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	exec := engine.NewSharedExecutor(&runner.DockerRunner{}, -1)
+	p4, err := engine.ProcessJSON(string(raw))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	exec := engine.NewSharedExecutor(&runner.DockerRunner{}, 24)
 
 	fmt.Printf("Submitting pipeline %q\n", p1.Name)
 	pe1, err := exec.Submit(context.Background(), p1, os.Stdout, os.Stderr)
@@ -49,13 +54,20 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Submitting pipeline %q\n", p2.Name)
+	fmt.Printf("Submitting pipeline %q\n", p3.Name)
 	pe3, err := exec.Submit(context.Background(), p3, os.Stdout, os.Stderr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Both pipelines submitted, waiting...")
+	fmt.Printf("Submitting pipeline %q\n", p4.Name)
+	pe4, err := exec.Submit(context.Background(), p4, os.Stdout, os.Stderr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	exec.Submit(context.Background(), p4, os.Stdout, os.Stderr)
+
+	fmt.Println("All pipelines submitted, waiting...")
 
 	if err := pe1.Wait(); err != nil {
 		log.Printf("Pipeline 1 failed: %v", err)
@@ -70,6 +82,12 @@ func main() {
 	}
 
 	if err := pe3.Wait(); err != nil {
+		log.Printf("Pipeline 2 failed: %v", err)
+	} else {
+		fmt.Println("Pipeline 2 completed successfully")
+	}
+
+	if err := pe4.Wait(); err != nil {
 		log.Printf("Pipeline 2 failed: %v", err)
 	} else {
 		fmt.Println("Pipeline 2 completed successfully")

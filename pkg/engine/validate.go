@@ -2,8 +2,12 @@ package engine
 
 import (
 	"fmt"
+	"path/filepath"
+	"regexp"
 	"strings"
 )
+
+var re = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
 type ValidationError struct {
 	Location string
@@ -14,7 +18,7 @@ type ValidationErrors struct {
 	Errors []ValidationError
 }
 
-// Error generates the error string for a validation error
+// String  generates the error string for a validation error
 func (v ValidationError) String() string {
 	return v.Location + ": " + v.Message
 }
@@ -43,6 +47,7 @@ func (p *Pipeline) Validate() error {
 
 	p.validateFields(&errs)
 	p.validateDependencies(&errs)
+	p.validateArtifacts(&errs)
 	p.validateGraphs(&errs)
 
 	if len(errs.Errors) > 0 {
@@ -50,6 +55,68 @@ func (p *Pipeline) Validate() error {
 	}
 
 	return nil
+}
+
+func (p *Pipeline) validateStepFields(job Job, errs *ValidationErrors) {
+	stepNames := make(map[string]struct{})
+	for sIdx, s := range job.Steps {
+
+		jobStep := fmt.Sprintf("step %d '%s/%s'", sIdx+1, job.Name, s.Name)
+
+		if s.Name == "" {
+			errs.Add(ValidationError{
+				Location: jobStep,
+				Message:  "name cannot be empty",
+			})
+		}
+
+		if _, exists := stepNames[s.Name]; exists {
+			errs.Add(ValidationError{
+				Location: jobStep,
+				Message:  "duplicate step name",
+			})
+		}
+
+		stepNames[s.Name] = struct{}{}
+
+		if s.Cmd == "" {
+			errs.Add(ValidationError{
+				Location: jobStep,
+				Message:  "cmd cannot be empty",
+			})
+		}
+	}
+}
+
+func (p *Pipeline) validateArtifactFields(job Job, errs *ValidationErrors) {
+	artifactNames := make(map[string]struct{})
+	for _, a := range job.Artifacts {
+
+		jobArtifact := fmt.Sprintf("artifact '%s/%s'", job.Name, a.Name)
+
+		if !re.MatchString(a.Name) {
+			errs.Add(ValidationError{
+				Location: jobArtifact,
+				Message:  "name must be a valid identifier",
+			})
+		}
+
+		if _, exists := artifactNames[a.Name]; exists {
+			errs.Add(ValidationError{
+				Location: jobArtifact,
+				Message:  "duplicate artifact name",
+			})
+		}
+
+		artifactNames[a.Name] = struct{}{}
+
+		if a.Path == "" {
+			errs.Add(ValidationError{
+				Location: jobArtifact,
+				Message:  "path cannot be empty",
+			})
+		}
+	}
 }
 
 // validateFields checks if required fields are non-empty
@@ -76,10 +143,10 @@ func (p *Pipeline) validateFields(errs *ValidationErrors) {
 
 		jobLocation := fmt.Sprintf("job %d '%s'", idx+1, job.Name)
 
-		if job.Name == "" {
+		if !re.MatchString(job.Name) {
 			errs.Add(ValidationError{
 				Location: jobLocation,
-				Message:  "name cannot be empty",
+				Message:  "name must be a valid identifier",
 			})
 		}
 
@@ -106,35 +173,9 @@ func (p *Pipeline) validateFields(errs *ValidationErrors) {
 			})
 		}
 
-		stepNames := make(map[string]struct{})
+		p.validateStepFields(job, errs)
+		p.validateArtifactFields(job, errs)
 
-		for sIdx, step := range job.Steps {
-
-			jobStep := fmt.Sprintf("step %d '%s/%s'", sIdx+1, job.Name, step.Name)
-
-			if step.Name == "" {
-				errs.Add(ValidationError{
-					Location: jobStep,
-					Message:  "name cannot be empty",
-				})
-			}
-
-			if _, exists := stepNames[step.Name]; exists {
-				errs.Add(ValidationError{
-					Location: jobStep,
-					Message:  "duplicate step name",
-				})
-			}
-
-			stepNames[step.Name] = struct{}{}
-
-			if step.Cmd == "" {
-				errs.Add(ValidationError{
-					Location: jobStep,
-					Message:  "cmd cannot be empty",
-				})
-			}
-		}
 	}
 }
 
@@ -142,8 +183,15 @@ func (p *Pipeline) validateFields(errs *ValidationErrors) {
 func (p *Pipeline) validateDependencies(errs *ValidationErrors) {
 	jobs := make(map[string]struct{})
 
+	jobArtifacts := make(map[string]map[string]struct{})
+
 	for _, job := range p.Jobs {
 		jobs[job.Name] = struct{}{}
+		names := make(map[string]struct{})
+		for _, a := range job.Artifacts {
+			names[a.Name] = struct{}{}
+		}
+		jobArtifacts[job.Name] = names
 	}
 
 	for idx, job := range p.Jobs {
@@ -153,28 +201,84 @@ func (p *Pipeline) validateDependencies(errs *ValidationErrors) {
 
 			jobLocation := fmt.Sprintf("job %d '%s'", idx+1, job.Name)
 
-			if dep == job.Name {
+			if !re.MatchString(dep.Job) {
+				errs.Add(ValidationError{
+					Location: jobLocation,
+					Message:  "name must be a valid identifier",
+				})
+			}
+
+			if dep.Job == job.Name {
 				errs.Add(ValidationError{
 					Location: jobLocation,
 					Message:  "job cannot depend on itself",
 				})
 			}
 
-			if _, ok := jobs[dep]; !ok {
+			if _, ok := jobs[dep.Job]; !ok {
 				errs.Add(ValidationError{
 					Location: jobLocation,
-					Message:  fmt.Sprintf("dependency '%s' does not exist", dep),
+					Message:  fmt.Sprintf("dependency '%s' does not exist", dep.Job),
 				})
 			}
 
-			if _, ok := seen[dep]; ok {
+			if _, ok := seen[dep.Job]; ok {
 				errs.Add(ValidationError{
 					Location: jobLocation,
-					Message:  fmt.Sprintf("duplicate dependency '%s'", dep),
+					Message:  fmt.Sprintf("duplicate dependency '%s'", dep.Job),
 				})
 			}
 
-			seen[dep] = struct{}{}
+			seen[dep.Job] = struct{}{}
+
+			depArtSeen := make(map[string]struct{})
+			for _, aName := range dep.Requires {
+				if !re.MatchString(aName) {
+					errs.Add(ValidationError{
+						Location: jobLocation,
+						Message:  "name must be a valid identifier",
+					})
+				}
+
+				if _, ok := depArtSeen[aName]; ok {
+					errs.Add(ValidationError{
+						Location: jobLocation,
+						Message:  fmt.Sprintf("dependency '%s' references artifact '%s' more than once", dep.Job, aName),
+					})
+				}
+
+				if targets, ok := jobArtifacts[dep.Job]; ok {
+					if _, exists := targets[aName]; !exists {
+						errs.Add(ValidationError{
+							Location: jobLocation,
+							Message:  fmt.Sprintf("dependency '%s' does not produce artifact '%s'", dep.Job, aName),
+						})
+					}
+				}
+			}
+		}
+	}
+}
+
+func (p *Pipeline) validateArtifacts(errs *ValidationErrors) {
+	for _, job := range p.Jobs {
+		for _, a := range job.Artifacts {
+			jobArtifact := fmt.Sprintf("artifact '%s/%s'", job.Name, a.Name)
+
+			if filepath.IsAbs(a.Path) {
+				errs.Add(ValidationError{
+					Location: jobArtifact,
+					Message:  "path must not be absolute",
+				})
+			}
+
+			clean := filepath.Clean(a.Path)
+			if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+				errs.Add(ValidationError{
+					Location: jobArtifact,
+					Message:  "path cannot go back directories",
+				})
+			}
 		}
 	}
 }
@@ -203,16 +307,16 @@ func (p *Pipeline) validateGraphs(errs *ValidationErrors) {
 		path = append(path, name)
 
 		for _, dep := range jobMap[name].DependsOn {
-			if _, exists := jobMap[dep]; !exists {
+			if _, exists := jobMap[dep.Job]; !exists {
 				continue
 			}
 
-			switch color[dep] {
+			switch color[dep.Job] {
 			case white:
-				dfs(dep)
+				dfs(dep.Job)
 			case gray:
-				cycleStart := pathIndex[dep]
-				cycle := append(append([]string{}, path[cycleStart:]...), dep)
+				cycleStart := pathIndex[dep.Job]
+				cycle := append(append([]string{}, path[cycleStart:]...), dep.Job)
 				errs.Add(ValidationError{
 					Location: fmt.Sprintf("job '%s'", name),
 					Message:  fmt.Sprintf("dependency cycle detected: %s", strings.Join(cycle, " -> ")),

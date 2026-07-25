@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"time"
 
 	// sdkContainer "github.com/docker/go-sdk/container"
@@ -19,10 +20,14 @@ type DockerRunner struct {
 type DockerExecution struct {
 	client      *client.Client
 	containerID string
+	workDir     string
 }
 
 func NewDockerRunner() (*DockerRunner, error) {
-	apiClient, _ := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
+	apiClient, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return nil, fmt.Errorf("unable to create docker client: %w", err)
+	}
 	return &DockerRunner{
 		client: apiClient,
 	}, nil
@@ -36,12 +41,20 @@ func envStrings(m map[string]string) []string {
 	return e
 }
 
+// deprecated?
+func (r *DockerRunner) WorkDir() string {
+	return "/workspace"
+}
+
 func (r *DockerRunner) Create(ctx context.Context, cfg ExecutionCreateConfig) (Execution, error) {
+	wd := r.WorkDir()
+
 	resp, err := r.client.ContainerCreate(ctx, client.ContainerCreateOptions{
 		Config: &container.Config{
-			Image: cfg.Image,
-			Cmd:   []string{"tail", "-f", "/dev/null"},
-			Env:   envStrings(cfg.Env),
+			Image:      cfg.Image,
+			Cmd:        []string{"tail", "-f", "/dev/null"},
+			Env:        envStrings(cfg.Env),
+			WorkingDir: wd,
 		},
 	})
 
@@ -60,6 +73,7 @@ func (r *DockerRunner) Create(ctx context.Context, cfg ExecutionCreateConfig) (E
 	return &DockerExecution{
 		client:      r.client,
 		containerID: resp.ID,
+		workDir:     wd,
 	}, nil
 }
 
@@ -113,6 +127,19 @@ func (e *DockerExecution) Exec(ctx context.Context, cfg ExecConfig) (ExecResult,
 }
 
 func (e *DockerExecution) CopyIn(ctx context.Context, reader io.Reader, pathTo string) error {
+	if !filepath.IsAbs(pathTo) {
+		pathTo = filepath.Join(e.workDir, pathTo)
+	}
+
+	parent := filepath.Dir(pathTo)
+	if _, err := e.Exec(ctx, ExecConfig{
+		Cmd:    "mkdir -p " + parent,
+		Stdout: io.Discard,
+		Stderr: io.Discard,
+	}); err != nil {
+		return fmt.Errorf("cannot create parent dir: %w", err)
+	}
+
 	_, err := e.client.CopyToContainer(ctx, e.containerID, client.CopyToContainerOptions{
 		DestinationPath: pathTo,
 		Content:         reader,
@@ -120,17 +147,19 @@ func (e *DockerExecution) CopyIn(ctx context.Context, reader io.Reader, pathTo s
 	return err
 }
 
-func (e *DockerExecution) CopyOut(ctx context.Context, writer io.Writer, pathFrom string) error {
+func (e *DockerExecution) CopyOut(ctx context.Context, pathFrom string) (io.ReadCloser, error) {
+	if !filepath.IsAbs(pathFrom) {
+		pathFrom = filepath.Join(e.workDir, pathFrom)
+	} 
+
 	res, err := e.client.CopyFromContainer(ctx, e.containerID, client.CopyFromContainerOptions{
 		SourcePath: pathFrom,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer res.Content.Close()
 
-	_, err = io.Copy(writer, res.Content)
-	return err
+	return res.Content, nil
 }
 
 func (e *DockerExecution) Remove(ctx context.Context) error {
@@ -143,7 +172,6 @@ func (e *DockerExecution) Remove(ctx context.Context) error {
 	_, err := e.client.ContainerRemove(cleanupCtx, e.containerID, client.ContainerRemoveOptions{
 		Force:         true,
 		RemoveVolumes: true,
-		RemoveLinks:   true,
 	})
 	return err
 }

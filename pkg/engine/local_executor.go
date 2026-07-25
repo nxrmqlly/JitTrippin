@@ -6,16 +6,18 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/nxrmqlly/jittrippin/pkg/artifact"
 	"github.com/nxrmqlly/jittrippin/pkg/runner"
 )
 
 const DEFAULTPARALLEL = 12
 
 type LocalExecutor struct {
-	Runner      runner.Runner
-	Stdout      io.Writer
-	Stderr      io.Writer
-	MaxParallel int
+	Runner        runner.Runner
+	Stdout        io.Writer
+	Stderr        io.Writer
+	MaxParallel   int
+	ArtifactStore artifact.Store
 }
 
 func (e *LocalExecutor) maxParallel() int {
@@ -33,7 +35,7 @@ func (e *LocalExecutor) maxParallel() int {
 
 }
 
-func (e *LocalExecutor) worker(ctx context.Context, jobs <-chan *Job, results chan<- JobResult, wg *sync.WaitGroup) {
+func (e *LocalExecutor) worker(ctx context.Context, p *Pipeline, jobs <-chan *Job, results chan<- JobResult, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	// worker keeps "polling" the channels
@@ -50,7 +52,14 @@ func (e *LocalExecutor) worker(ctx context.Context, jobs <-chan *Job, results ch
 				results <- JobResult{job: job, err: err}
 				continue
 			}
-			err := RunJob(ctx, e.Runner, job, e.Stdout, e.Stderr)
+			err := ExecuteJob(ctx, ExecuteJobConfig{
+				runner:        e.Runner,
+				job:           job,
+				stdout:        e.Stdout,
+				stderr:        e.Stderr,
+				artifactStore: e.ArtifactStore,
+				pipeline:      p,
+			})
 			results <- JobResult{job: job, err: err}
 
 		case <-ctx.Done():
@@ -72,7 +81,7 @@ func (e *LocalExecutor) execute(ctx context.Context, p *Pipeline) error {
 	var wg sync.WaitGroup
 	for range e.maxParallel() {
 		wg.Add(1)
-		go e.worker(ctx, jobs, results, &wg)
+		go e.worker(ctx, p, jobs, results, &wg)
 	}
 
 	for _, job := range scheduler.Ready() {

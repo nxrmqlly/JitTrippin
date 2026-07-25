@@ -35,7 +35,7 @@ func NewScheduler(p *Pipeline) *Scheduler {
 		for _, dep := range job.DependsOn {
 			// we dont have to worry about duplicates because our validator
 			// handles that for us. yay!
-			children[dep] = append(children[dep], job.Name)
+			children[dep.Job] = append(children[dep.Job], job.Name)
 		}
 	}
 

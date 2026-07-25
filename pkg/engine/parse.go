@@ -28,7 +28,9 @@ func ProcessJSONFile(path string) (*Pipeline, error) {
 	var pipeline Pipeline
 
 	decoder := json.NewDecoder(file)
-	decoder.Decode(&pipeline)
+	if err := decoder.Decode(&pipeline); err != nil {
+		return nil, err
+	}
 
 	return &pipeline, nil
 }

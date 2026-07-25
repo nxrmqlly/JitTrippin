@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/nxrmqlly/jittrippin/pkg/artifact"
 	"github.com/nxrmqlly/jittrippin/pkg/runner"
 )
 
@@ -103,13 +104,16 @@ type SharedExecutor struct {
 
 	queue chan WorkItem
 	wg    sync.WaitGroup
+
+	ArtifactStore artifact.Store
 }
 
-func NewSharedExecutor(runner runner.Runner, maxParallel int) *SharedExecutor {
+func NewSharedExecutor(runner runner.Runner, maxParallel int, artifactStore artifact.Store) *SharedExecutor {
 	e := &SharedExecutor{
-		MaxParallel: maxParallel,
-		Runner:      runner,
-		queue:       make(chan WorkItem),
+		MaxParallel:   maxParallel,
+		Runner:        runner,
+		queue:         make(chan WorkItem),
+		ArtifactStore: artifactStore,
 	}
 	e.spawnWorkers(e.maxParallel())
 
@@ -148,13 +152,14 @@ func (e *SharedExecutor) worker() {
 			continue
 		}
 
-		err := RunJob(
-			work.pe.ctx,
-			e.Runner,
-			work.job,
-			work.pe.stdout,
-			work.pe.stderr,
-		)
+		err := ExecuteJob(work.pe.ctx, ExecuteJobConfig{
+			runner:        e.Runner,
+			job:           work.job,
+			stdout:        work.pe.stdout,
+			stderr:        work.pe.stderr,
+			artifactStore: e.ArtifactStore,
+			pipeline:      work.pe.pipeline,
+		})
 		work.pe.results <- JobResult{job: work.job, err: err}
 	}
 }

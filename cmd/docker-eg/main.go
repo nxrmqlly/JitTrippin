@@ -6,12 +6,16 @@ import (
 	"log"
 	"os"
 
+	"github.com/nxrmqlly/jittrippin/pkg/artifact"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 	"github.com/nxrmqlly/jittrippin/pkg/runner"
 )
 
 func main() {
-	const pipelinePath = "_example/concurrency_pipeline.json"
+	if 1 == 2 {
+		panic("wtf????!??!?!?!?")
+	}
+	const pipelinePath = "_example/artifact_test.json"
 
 	fmt.Printf("Reading pipeline: %s\n", pipelinePath)
 
@@ -20,79 +24,54 @@ func main() {
 		log.Fatal(err)
 	}
 
-	p1, err := engine.ProcessJSON(string(raw))
+	p, err := engine.ProcessJSON(string(raw))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	p2, err := engine.ProcessJSON(string(raw))
+	r, err := runner.NewDockerRunner()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	p3, err := engine.ProcessJSON(string(raw))
+	store := &artifact.LocalStore{
+		Root: ".jt-artifacts",
+	}
+
+	exec := engine.NewSharedExecutor(
+		r,
+		4,
+		store,
+	)
+	defer exec.Shutdown()
+
+	fmt.Printf("Submitting pipeline %q\n", p.Name)
+
+	pe, err := exec.Submit(
+		context.Background(),
+		p,
+		os.Stdout,
+		os.Stderr,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	p4, err := engine.ProcessJSON(string(raw))
-	if err != nil {
-		log.Fatal(err)
+	fmt.Println("Waiting for pipeline...")
+
+	if err := pe.Wait(); err != nil {
+		log.Fatalf("Pipeline failed: %v", err)
 	}
 
-	exec := engine.NewSharedExecutor(&runner.DockerRunner{}, 24)
+	fmt.Println("\nPipeline completed successfully!")
+	fmt.Println("Artifacts saved under .jt-artifacts/")
 
-	fmt.Printf("Submitting pipeline %q\n", p1.Name)
-	pe1, err := exec.Submit(context.Background(), p1, os.Stdout, os.Stderr)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("Submitting pipeline %q\n", p2.Name)
-	pe2, err := exec.Submit(context.Background(), p2, os.Stdout, os.Stderr)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("Submitting pipeline %q\n", p3.Name)
-	pe3, err := exec.Submit(context.Background(), p3, os.Stdout, os.Stderr)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("Submitting pipeline %q\n", p4.Name)
-	pe4, err := exec.Submit(context.Background(), p4, os.Stdout, os.Stderr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	exec.Submit(context.Background(), p4, os.Stdout, os.Stderr)
-
-	fmt.Println("All pipelines submitted, waiting...")
-
-	if err := pe1.Wait(); err != nil {
-		log.Printf("Pipeline 1 failed: %v", err)
-	} else {
-		fmt.Println("Pipeline 1 completed successfully")
-	}
-
-	if err := pe2.Wait(); err != nil {
-		log.Printf("Pipeline 2 failed: %v", err)
-	} else {
-		fmt.Println("Pipeline 2 completed successfully")
-	}
-
-	if err := pe3.Wait(); err != nil {
-		log.Printf("Pipeline 2 failed: %v", err)
-	} else {
-		fmt.Println("Pipeline 2 completed successfully")
-	}
-
-	if err := pe4.Wait(); err != nil {
-		log.Printf("Pipeline 2 failed: %v", err)
-	} else {
-		fmt.Println("Pipeline 2 completed successfully")
-	}
-
-	exec.Shutdown()
-	fmt.Println("Executor shut down")
+	fmt.Println("\nExpected layout:")
+	fmt.Println("  .jt-artifacts/")
+	fmt.Println("  ├── compile/")
+	fmt.Println("  │   └── app-binary.tar")
+	fmt.Println("  ├── unit-test/")
+	fmt.Println("  │   └── test-report.tar")
+	fmt.Println("  └── package/")
+	fmt.Println("      └── release-bundle.tar")
 }

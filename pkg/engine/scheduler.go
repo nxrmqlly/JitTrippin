@@ -89,5 +89,5 @@ func (s *Scheduler) Fail(jobName string) {
 
 // Done returns whether all jobs in the pipeline have finished executing.
 func (s *Scheduler) Done() bool {
-	return s.processed == s.dispatched
+	return s.processed == len(s.jobMap)
 }

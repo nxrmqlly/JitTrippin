@@ -121,7 +121,6 @@ func (e *DockerExecution) Exec(ctx context.Context, cfg ExecConfig) (ExecResult,
 
 	if exitCode != 0 {
 		return ExecResult{ExitCode: exitCode}, fmt.Errorf("command exited with code %d", exitCode)
-		// return fmt.Errorf("step %s failed with exit code %d", jobStepIdx, exitCode)
 	}
 	return ExecResult{ExitCode: exitCode}, nil
 }
@@ -141,7 +140,7 @@ func (e *DockerExecution) CopyIn(ctx context.Context, reader io.Reader, pathTo s
 	}
 
 	_, err := e.client.CopyToContainer(ctx, e.containerID, client.CopyToContainerOptions{
-		DestinationPath: pathTo,
+		DestinationPath: parent,
 		Content:         reader,
 	})
 	return err

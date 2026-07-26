@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/nxrmqlly/jittrippin/pkg/artifact"
+	"github.com/nxrmqlly/jittrippin/pkg/checkout"
 	"github.com/nxrmqlly/jittrippin/pkg/runner"
 )
 
@@ -117,12 +118,13 @@ func (pe *PipelineRuntime) Stop() {
 
 type Executor struct {
 	MaxParallel int
-	Runner      runner.Runner
+
+	Runner        runner.Runner
+	Checkouter    checkout.Checkouter
+	ArtifactStore artifact.Store
 
 	queue chan WorkItem
 	wg    sync.WaitGroup
-
-	ArtifactStore artifact.Store
 }
 
 type ExecutorConfig struct {
@@ -131,14 +133,16 @@ type ExecutorConfig struct {
 
 	Runner        runner.Runner
 	ArtifactStore artifact.Store
+	Checkouter    checkout.Checkouter
 }
 
 func NewExecutor(cfg ExecutorConfig) *Executor {
 	e := &Executor{
 		MaxParallel:   cfg.MaxParallel,
 		Runner:        cfg.Runner,
-		queue:         make(chan WorkItem),
 		ArtifactStore: cfg.ArtifactStore,
+		queue:         make(chan WorkItem),
+		Checkouter:    cfg.Checkouter,
 	}
 	e.spawnWorkers(e.maxParallel())
 
@@ -184,6 +188,7 @@ func (e *Executor) worker() {
 			stderr:        work.pe.stderr,
 			artifactStore: e.ArtifactStore,
 			pipeline:      work.pe.pipeline,
+			checkouter:    e.Checkouter,
 		})
 		work.pe.results <- JobResult{job: work.job, err: err}
 	}

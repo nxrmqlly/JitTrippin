@@ -38,7 +38,7 @@ func main() {
 		Root: ".jt-artifacts",
 	}
 
-	exec := engine.NewSharedExecutor(
+	exec := engine.NewExecutor(
 		r,
 		4,
 		store,

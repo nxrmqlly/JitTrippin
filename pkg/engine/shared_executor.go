@@ -11,6 +11,8 @@ import (
 	"github.com/nxrmqlly/jittrippin/pkg/runner"
 )
 
+const DEFAULTPARALLEL = 12
+
 type WorkItem struct {
 	job *Job
 	pe  *PipelineRuntime
@@ -98,7 +100,7 @@ func (pe *PipelineRuntime) Wait() error {
 	return pe.err
 }
 
-type SharedExecutor struct {
+type Executor struct {
 	MaxParallel int
 	Runner      runner.Runner
 
@@ -108,8 +110,8 @@ type SharedExecutor struct {
 	ArtifactStore artifact.Store
 }
 
-func NewSharedExecutor(runner runner.Runner, maxParallel int, artifactStore artifact.Store) *SharedExecutor {
-	e := &SharedExecutor{
+func NewExecutor(runner runner.Runner, maxParallel int, artifactStore artifact.Store) *Executor {
+	e := &Executor{
 		MaxParallel:   maxParallel,
 		Runner:        runner,
 		queue:         make(chan WorkItem),
@@ -120,7 +122,7 @@ func NewSharedExecutor(runner runner.Runner, maxParallel int, artifactStore arti
 	return e
 }
 
-func (e *SharedExecutor) maxParallel() int {
+func (e *Executor) maxParallel() int {
 	if e.MaxParallel > 0 {
 		return e.MaxParallel
 	}
@@ -135,12 +137,12 @@ func (e *SharedExecutor) maxParallel() int {
 
 }
 
-func (e *SharedExecutor) Shutdown() {
+func (e *Executor) Shutdown() {
 	close(e.queue)
 	e.wg.Wait()
 }
 
-func (e *SharedExecutor) worker() {
+func (e *Executor) worker() {
 	defer e.wg.Done()
 
 	for work := range e.queue {
@@ -164,7 +166,7 @@ func (e *SharedExecutor) worker() {
 	}
 }
 
-func (e *SharedExecutor) spawnWorkers(n int) {
+func (e *Executor) spawnWorkers(n int) {
 	e.wg.Add(n)
 
 	for range n {
@@ -172,7 +174,7 @@ func (e *SharedExecutor) spawnWorkers(n int) {
 	}
 }
 
-func (e *SharedExecutor) Submit(ctx context.Context, p *Pipeline, stdout, stderr io.Writer) (*PipelineRuntime, error) {
+func (e *Executor) Submit(ctx context.Context, p *Pipeline, stdout, stderr io.Writer) (*PipelineRuntime, error) {
 	if err := p.Validate(); err != nil {
 		return nil, err
 	}

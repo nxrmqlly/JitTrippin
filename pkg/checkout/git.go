@@ -16,8 +16,10 @@ type GitCheckouter struct{}
 
 func tarDir(ctx context.Context, d string, pw *io.PipeWriter) {
 	defer os.RemoveAll(d)
+	defer pw.Close()
 
 	tw := tar.NewWriter(pw)
+	defer tw.Close()
 
 	if err := filepath.WalkDir(d, func(path string, de fs.DirEntry, err error) error {
 		if err := ctx.Err(); err != nil {
@@ -87,9 +89,6 @@ func tarDir(ctx context.Context, d string, pw *io.PipeWriter) {
 		pw.CloseWithError(err)
 	}
 
-	if err := tw.Close(); err != nil {
-		pw.CloseWithError(err)
-	}
 }
 
 func (gc *GitCheckouter) Checkout(ctx context.Context, c Checkout) (io.ReadCloser, error) {
@@ -101,7 +100,10 @@ func (gc *GitCheckouter) Checkout(ctx context.Context, c Checkout) (io.ReadClose
 	var stderr bytes.Buffer
 
 	clone := exec.CommandContext(ctx, "git", "clone", c.URL, d)
-	clone.Stderr = &stderr
+	// clone.Stderr = &stderr
+	clone.Stderr = os.Stderr
+	clone.Stdout = os.Stdout
+
 	if err := clone.Run(); err != nil {
 		os.RemoveAll(d)
 		return nil, fmt.Errorf("git clone failed: %s: %w", stderr.String(), err)
@@ -112,7 +114,9 @@ func (gc *GitCheckouter) Checkout(ctx context.Context, c Checkout) (io.ReadClose
 
 		checkout := exec.CommandContext(ctx, "git", "checkout", c.Ref)
 		checkout.Dir = d
-		checkout.Stderr = &stderr
+		// checkout.Stderr = &stderr
+		checkout.Stderr = os.Stderr
+		checkout.Stdout = os.Stdout
 
 		if err := checkout.Run(); err != nil {
 			os.RemoveAll(d)

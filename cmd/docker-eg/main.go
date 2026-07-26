@@ -5,17 +5,20 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/nxrmqlly/jittrippin/pkg/artifact"
+	"github.com/nxrmqlly/jittrippin/pkg/checkout"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 	"github.com/nxrmqlly/jittrippin/pkg/runner"
 )
 
 func main() {
-	if 1 == 2 {
-		panic("wtf????!??!?!?!?")
-	}
-	const pipelinePath = "_example/artifact_test.json"
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	const pipelinePath = "_example/checkout_artifact.json"
 
 	fmt.Printf("Reading pipeline: %s\n", pipelinePath)
 
@@ -39,16 +42,17 @@ func main() {
 	}
 
 	exec := engine.NewExecutor(engine.ExecutorConfig{
+		MaxParallel:   4,
 		Runner:        r,
 		ArtifactStore: store,
-		MaxParallel:   12,
+		Checkouter:    &checkout.GitCheckouter{},
 	})
 	defer exec.Shutdown()
 
 	fmt.Printf("Submitting pipeline %q\n", p.Name)
 
 	pe, err := exec.Submit(
-		context.Background(),
+		ctx,
 		p,
 		os.Stdout,
 		os.Stderr,
@@ -65,13 +69,4 @@ func main() {
 
 	fmt.Println("\nPipeline completed successfully!")
 	fmt.Println("Artifacts saved under .jt-artifacts/")
-
-	fmt.Println("\nExpected layout:")
-	fmt.Println("  .jt-artifacts/")
-	fmt.Println("  ├── compile/")
-	fmt.Println("  │   └── app-binary.tar")
-	fmt.Println("  ├── unit-test/")
-	fmt.Println("  │   └── test-report.tar")
-	fmt.Println("  └── package/")
-	fmt.Println("      └── release-bundle.tar")
 }

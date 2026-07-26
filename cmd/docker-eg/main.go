@@ -38,11 +38,11 @@ func main() {
 		Root: ".jt-artifacts",
 	}
 
-	exec := engine.NewExecutor(
-		r,
-		4,
-		store,
-	)
+	exec := engine.NewExecutor(engine.ExecutorConfig{
+		Runner:        r,
+		ArtifactStore: store,
+		MaxParallel:   12,
+	})
 	defer exec.Shutdown()
 
 	fmt.Printf("Submitting pipeline %q\n", p.Name)

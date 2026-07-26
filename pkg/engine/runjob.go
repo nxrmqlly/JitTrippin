@@ -6,16 +6,18 @@ import (
 	"io"
 
 	"github.com/nxrmqlly/jittrippin/pkg/artifact"
+	"github.com/nxrmqlly/jittrippin/pkg/checkout"
 	"github.com/nxrmqlly/jittrippin/pkg/runner"
 )
 
 type ExecuteJobConfig struct {
 	runner        runner.Runner
+	artifactStore artifact.Store
+	checkouter    checkout.Checkouter
+	pipeline      *Pipeline
 	job           *Job
 	stdout        io.Writer
 	stderr        io.Writer
-	artifactStore artifact.Store
-	pipeline      *Pipeline
 }
 
 func (p *Pipeline) LookupArtifact(jobName, artifactName string) (artifact.Artifact, error) {
@@ -29,7 +31,7 @@ func (p *Pipeline) LookupArtifact(jobName, artifactName string) (artifact.Artifa
 				return a, nil
 			}
 		}
-		return artifact.Artifact{}, fmt.Errorf("job '%s' does not produce artifact '%s", jobName, artifactName)
+		return artifact.Artifact{}, fmt.Errorf("job '%s' does not produce artifact '%s'", jobName, artifactName)
 	}
 	return artifact.Artifact{}, fmt.Errorf("job '%s' does not exist", jobName)
 }
@@ -44,6 +46,20 @@ func ExecuteJob(ctx context.Context, cfg ExecuteJobConfig) error {
 	}
 
 	defer exec.Remove(ctx)
+
+	co := cfg.pipeline.Checkout
+	if co.URL != "" {
+		r, err := cfg.checkouter.Checkout(ctx, co)
+		if err != nil {
+			return err
+		}
+
+		if err := exec.CopyIn(ctx, r, cfg.runner.WorkDir()); err != nil {
+			r.Close()
+			return err
+		}
+		r.Close()
+	}
 
 	for _, dep := range cfg.job.DependsOn {
 		for _, req := range dep.Requires {

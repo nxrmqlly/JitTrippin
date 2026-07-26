@@ -18,6 +18,14 @@ type WorkItem struct {
 	pe  *PipelineRuntime
 }
 
+type JobResult struct {
+	job *Job
+	err error
+}
+
+// PipelineRuntime is a state machine that asynchronously tracks
+// the status of a job in a pipeline while it is running.
+// It is safe to wait on by multiple goroutines
 type PipelineRuntime struct {
 	pipeline  *Pipeline
 	scheduler *Scheduler
@@ -30,7 +38,7 @@ type PipelineRuntime struct {
 	err       error
 }
 
-func NewPipelineRuntime(parentCtx context.Context, p *Pipeline, stdout, stderr io.Writer) *PipelineRuntime {
+func newPipelineRuntime(parentCtx context.Context, p *Pipeline, stdout, stderr io.Writer) *PipelineRuntime {
 	ctx, cancel := context.WithCancel(parentCtx)
 
 	return &PipelineRuntime{
@@ -45,6 +53,8 @@ func NewPipelineRuntime(parentCtx context.Context, p *Pipeline, stdout, stderr i
 	}
 }
 
+// start drives the pipeline scheduler until completion..
+// It must be called exactly once
 func (pe *PipelineRuntime) start(queue chan<- WorkItem) {
 	defer close(pe.done)
 	defer func() {
@@ -100,6 +110,11 @@ func (pe *PipelineRuntime) Wait() error {
 	return pe.err
 }
 
+func (pe *PipelineRuntime) Stop() {
+	pe.cancel()
+	pe.Wait()
+}
+
 type Executor struct {
 	MaxParallel int
 	Runner      runner.Runner
@@ -110,12 +125,20 @@ type Executor struct {
 	ArtifactStore artifact.Store
 }
 
-func NewExecutor(runner runner.Runner, maxParallel int, artifactStore artifact.Store) *Executor {
+type ExecutorConfig struct {
+	// MaxParallel should be set to -1 for automatic detection
+	MaxParallel int
+
+	Runner        runner.Runner
+	ArtifactStore artifact.Store
+}
+
+func NewExecutor(cfg ExecutorConfig) *Executor {
 	e := &Executor{
-		MaxParallel:   maxParallel,
-		Runner:        runner,
+		MaxParallel:   cfg.MaxParallel,
+		Runner:        cfg.Runner,
 		queue:         make(chan WorkItem),
-		ArtifactStore: artifactStore,
+		ArtifactStore: cfg.ArtifactStore,
 	}
 	e.spawnWorkers(e.maxParallel())
 
@@ -179,13 +202,8 @@ func (e *Executor) Submit(ctx context.Context, p *Pipeline, stdout, stderr io.Wr
 		return nil, err
 	}
 
-	pe := NewPipelineRuntime(ctx, p, stdout, stderr)
+	pe := newPipelineRuntime(ctx, p, stdout, stderr)
 	go pe.start(e.queue)
 
 	return pe, nil
-}
-
-func (pe *PipelineRuntime) Stop() {
-	pe.cancel()
-	pe.Wait()
 }

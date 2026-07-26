@@ -1,11 +1,15 @@
 package engine
 
-import "github.com/nxrmqlly/jittrippin/pkg/artifact"
+import (
+	"github.com/nxrmqlly/jittrippin/pkg/artifact"
+	"github.com/nxrmqlly/jittrippin/pkg/checkout"
+)
 
 type Pipeline struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Jobs        []Job  `json:"jobs"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Jobs        []Job             `json:"jobs"`
+	Checkout    checkout.Checkout `json:"checkout"`
 }
 
 type Job struct {
@@ -25,9 +29,4 @@ type Dependency struct {
 type Step struct {
 	Name string `json:"name"`
 	Cmd  string `json:"cmd"`
-}
-
-type JobResult struct {
-	job *Job
-	err error
 }

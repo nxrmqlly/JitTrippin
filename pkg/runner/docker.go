@@ -17,12 +17,6 @@ type DockerRunner struct {
 	client *client.Client
 }
 
-type DockerExecution struct {
-	client      *client.Client
-	containerID string
-	workDir     string
-}
-
 func NewDockerRunner() (*DockerRunner, error) {
 	apiClient, err := client.New(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -41,7 +35,6 @@ func envStrings(m map[string]string) []string {
 	return e
 }
 
-// deprecated?
 func (r *DockerRunner) WorkDir() string {
 	return "/workspace"
 }
@@ -75,6 +68,12 @@ func (r *DockerRunner) Create(ctx context.Context, cfg ExecutionCreateConfig) (E
 		containerID: resp.ID,
 		workDir:     wd,
 	}, nil
+}
+
+type DockerExecution struct {
+	client      *client.Client
+	containerID string
+	workDir     string
 }
 
 type ExecConfig struct {
@@ -149,7 +148,7 @@ func (e *DockerExecution) CopyIn(ctx context.Context, reader io.Reader, pathTo s
 func (e *DockerExecution) CopyOut(ctx context.Context, pathFrom string) (io.ReadCloser, error) {
 	if !filepath.IsAbs(pathFrom) {
 		pathFrom = filepath.Join(e.workDir, pathFrom)
-	} 
+	}
 
 	res, err := e.client.CopyFromContainer(ctx, e.containerID, client.CopyFromContainerOptions{
 		SourcePath: pathFrom,

@@ -20,7 +20,8 @@ best-effort.
 
 ## Roadmap
 
-(in best-effort order of priority)
+(in best-effort order of priority, or what's more fun to implement)
+
 - [x] JSON Parser
 - [x] Executor (w/ worker pools)
 - [x] Validator
@@ -30,6 +31,7 @@ best-effort.
 - [x] Artifacts Core
 - [X] Checkout Core
 - [ ] CLI
+- [ ] Pretty printing
 - [ ] REST API service
 - [ ] Cache
 - [ ] Secrets

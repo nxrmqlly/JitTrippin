@@ -6,6 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/moby/moby/api v1.52.0
 	github.com/moby/moby/client v0.1.0
+	github.com/urfave/cli/v3 v3.10.1
 )
 
 require (

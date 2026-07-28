@@ -100,9 +100,7 @@ func (gc *GitCheckouter) Checkout(ctx context.Context, c Checkout) (io.ReadClose
 	var stderr bytes.Buffer
 
 	clone := exec.CommandContext(ctx, "git", "clone", c.URL, d)
-	// clone.Stderr = &stderr
-	clone.Stderr = os.Stderr
-	clone.Stdout = os.Stdout
+	clone.Stderr = &stderr
 
 	if err := clone.Run(); err != nil {
 		os.RemoveAll(d)
@@ -114,9 +112,7 @@ func (gc *GitCheckouter) Checkout(ctx context.Context, c Checkout) (io.ReadClose
 
 		checkout := exec.CommandContext(ctx, "git", "checkout", c.Ref)
 		checkout.Dir = d
-		// checkout.Stderr = &stderr
-		checkout.Stderr = os.Stderr
-		checkout.Stdout = os.Stdout
+		checkout.Stderr = &stderr
 
 		if err := checkout.Run(); err != nil {
 			os.RemoveAll(d)

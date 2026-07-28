@@ -59,13 +59,11 @@ func ExecuteJob(ctx context.Context, cfg ExecuteJobConfig) error {
 			return err
 		}
 
-		fmt.Println(">>>>>>>>> before CopyIn")
 		if err := exec.CopyIn(ctx, r, cfg.runner.WorkDir()); err != nil {
 			r.Close()
 			return err
 		}
 		r.Close()
-		fmt.Println(">>>>>>>>> after CopyIn")
 
 	}
 

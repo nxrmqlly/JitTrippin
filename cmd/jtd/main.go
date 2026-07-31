@@ -1,15 +1,20 @@
 package main
 
 import (
-	"log"
+	"net/http"
 
 	"github.com/nxrmqlly/jittrippin/internal/server"
 )
 
 func main() {
-	srv := server.NewServer()
-
-	if err := srv.Run(":5500"); err != nil {
-		log.Fatal(err)
+	h, err := server.NewServer()
+	if err != nil {
+		panic(err)
 	}
+
+	srv := http.Server{
+		Handler: h,
+		Addr:    ":5500",
+	}
+	srv.ListenAndServe()
 }

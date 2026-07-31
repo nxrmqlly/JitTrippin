@@ -6,7 +6,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-func NewCli() *cli.Command {
+func New() *cli.Command {
 	return &cli.Command{
 		Name:  "jt",
 		Usage: "jittrippin - the local ci/cd engine",

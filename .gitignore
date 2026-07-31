@@ -1,1 +1,3 @@
 .jt-artifacts/
+tmp/
+.env

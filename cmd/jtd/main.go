@@ -15,6 +15,7 @@ func main() {
 
 	s := &artifact.LocalStore{
 		Root: ".jt-pipelines",
+		Extension: ".tar",
 	}
 
 	c := &checkout.GitCheckouter{}

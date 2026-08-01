@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/nxrmqlly/jittrippin/helpers"
 	"github.com/nxrmqlly/jittrippin/pkg/artifact"
 	"github.com/nxrmqlly/jittrippin/pkg/checkout"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
@@ -88,7 +89,8 @@ func handleRun(ctx context.Context, c *cli.Command) error {
 	}
 
 	store := &artifact.LocalStore{
-		Root: artifactDir,
+		Root:      artifactDir,
+		Extension: ".tar",
 	}
 
 	exec := engine.NewExecutor(engine.ExecutorConfig{
@@ -103,6 +105,7 @@ func handleRun(ctx context.Context, c *cli.Command) error {
 
 	pe, err := exec.Submit(
 		ctx,
+		helpers.MustUUIDV7(),
 		p,
 		stdout,
 		stderr,

@@ -15,7 +15,7 @@ type ExecuteJobConfig struct {
 	runner        runner.Runner
 	artifactStore artifact.Store
 	checkouter    checkout.Checkouter
-	pipeline      *Pipeline
+	runtime       *PipelineRuntime
 	job           *Job
 	stdout        io.Writer
 	stderr        io.Writer
@@ -37,6 +37,7 @@ func (p *Pipeline) LookupArtifact(jobName, artifactName string) (artifact.Artifa
 	return artifact.Artifact{}, fmt.Errorf("job '%s' does not exist", jobName)
 }
 
+// ExecuteJ
 func ExecuteJob(ctx context.Context, cfg ExecuteJobConfig) error {
 	exec, err := cfg.runner.Create(ctx, runner.ExecutionCreateConfig{
 		Image: cfg.job.Image,
@@ -52,7 +53,7 @@ func ExecuteJob(ctx context.Context, cfg ExecuteJobConfig) error {
 		}
 	}()
 
-	co := cfg.pipeline.Checkout
+	co := cfg.runtime.pipeline.Checkout
 	if co.URL != "" {
 		r, err := cfg.checkouter.Checkout(ctx, co)
 		if err != nil {
@@ -69,12 +70,16 @@ func ExecuteJob(ctx context.Context, cfg ExecuteJobConfig) error {
 
 	for _, dep := range cfg.job.DependsOn {
 		for _, req := range dep.Requires {
-			a, err := cfg.pipeline.LookupArtifact(dep.Job, req)
+			a, err := cfg.runtime.pipeline.LookupArtifact(dep.Job, req)
 			if err != nil {
 				return err
 			}
 
-			r, err := cfg.artifactStore.Load(ctx, dep.Job, req)
+			r, err := cfg.artifactStore.Load(ctx, artifact.NewArtifactRef(
+				cfg.runtime.ID,
+				dep.Job,
+				req,
+			))
 			if err != nil {
 				return err
 			}
@@ -105,7 +110,15 @@ func ExecuteJob(ctx context.Context, cfg ExecuteJobConfig) error {
 			return err
 		}
 
-		if err := cfg.artifactStore.Save(ctx, cfg.job.Name, a, r); err != nil {
+		if err := cfg.artifactStore.Save(
+			ctx,
+			r,
+			artifact.NewArtifactRef(
+				cfg.runtime.ID,
+				cfg.job.Name,
+				a.Name,
+			),
+		); err != nil {
 			return err
 		}
 

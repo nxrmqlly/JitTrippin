@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/nxrmqlly/jittrippin/helpers"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 )
 
@@ -37,12 +37,17 @@ func NewManager(e *engine.Executor) (*Manager, error) {
 // Add sets runs[run.id] to run
 func (m *Manager) Add(run *Run) {
 	m.mu.Lock()
-	m.runs[run.id] = run
+	m.runs[run.ID()] = run
 	m.mu.Unlock()
 }
 
 func (m *Manager) Submit(ctx context.Context, p *engine.Pipeline, stdout, stderr io.Writer) (*Run, error) {
-	pr, err := m.exec.Submit(ctx, p, stdout, stderr)
+	pr, err := m.exec.Submit(
+		ctx,
+		helpers.MustUUIDV7(),
+		p,
+		stdout,
+		stderr)
 	if err != nil {
 		return nil, err
 	}
@@ -148,8 +153,6 @@ func (m *Manager) Teardown() {
 type Run struct {
 	mu sync.RWMutex
 
-	// Unique UUIDv7
-	id      string
 	runtime *engine.PipelineRuntime
 
 	status     Status
@@ -162,7 +165,6 @@ type Run struct {
 
 func NewRun(pr *engine.PipelineRuntime, stdout, stderr io.Writer) *Run {
 	return &Run{
-		id:        uuid.Must(uuid.NewV7()).String(),
 		runtime:   pr,
 		createdAt: time.Now(),
 		status:    StatusRunning,
@@ -172,7 +174,7 @@ func NewRun(pr *engine.PipelineRuntime, stdout, stderr io.Writer) *Run {
 }
 
 func (r *Run) ID() string {
-	return r.id
+	return r.runtime.ID
 }
 
 func (r *Run) Status() Status {

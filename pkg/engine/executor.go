@@ -28,6 +28,10 @@ type JobResult struct {
 // the status of a job in a pipeline while it is running.
 // It is safe to wait on by multiple goroutines
 type PipelineRuntime struct {
+	// ID is daemon metadata, has no significance for engine
+	// It is an unique UUIDv7
+	ID string
+
 	pipeline  *Pipeline
 	scheduler *Scheduler
 	results   chan JobResult
@@ -39,7 +43,7 @@ type PipelineRuntime struct {
 	err       error
 }
 
-func newPipelineRuntime(parentCtx context.Context, p *Pipeline, stdout, stderr io.Writer) *PipelineRuntime {
+func newPipelineRuntime(parentCtx context.Context, id string, p *Pipeline, stdout, stderr io.Writer) *PipelineRuntime {
 	ctx, cancel := context.WithCancel(parentCtx)
 
 	return &PipelineRuntime{
@@ -187,7 +191,7 @@ func (e *Executor) worker() {
 			stdout:        work.pe.stdout,
 			stderr:        work.pe.stderr,
 			artifactStore: e.ArtifactStore,
-			pipeline:      work.pe.pipeline,
+			runtime:       work.pe,
 			checkouter:    e.Checkouter,
 		})
 		work.pe.results <- JobResult{job: work.job, err: err}
@@ -204,12 +208,12 @@ func (e *Executor) spawnWorkers(n int) {
 
 // Submit validates a pipeline, then adds a pipeline to worker queue.
 // Returns ValidationErrors if validation fails
-func (e *Executor) Submit(ctx context.Context, p *Pipeline, stdout, stderr io.Writer) (*PipelineRuntime, error) {
+func (e *Executor) Submit(ctx context.Context, id string, p *Pipeline, stdout, stderr io.Writer) (*PipelineRuntime, error) {
 	if err := p.Validate(); err != nil {
 		return nil, err
 	}
 
-	pe := newPipelineRuntime(ctx, p, stdout, stderr)
+	pe := newPipelineRuntime(ctx, id, p, stdout, stderr)
 	go pe.start(e.queue)
 
 	return pe, nil

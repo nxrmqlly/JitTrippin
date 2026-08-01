@@ -30,9 +30,9 @@ best-effort.
 - [x] Runner Core
 - [x] Artifacts Core
 - [X] Checkout Core
-- [ ] CLI
+- [ ] CLI (🔄️ In progress)
 - [ ] Pretty printing
-- [ ] REST API service
+- [ ] REST API service (🔄️ In progress)
 - [ ] Cache
 - [ ] Secrets
 - [ ] Annotated Logs

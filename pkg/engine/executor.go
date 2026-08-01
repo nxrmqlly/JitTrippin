@@ -202,6 +202,8 @@ func (e *Executor) spawnWorkers(n int) {
 	}
 }
 
+// Submit validates a pipeline, then adds a pipeline to worker queue.
+// Returns ValidationErrors if validation fails
 func (e *Executor) Submit(ctx context.Context, p *Pipeline, stdout, stderr io.Writer) (*PipelineRuntime, error) {
 	if err := p.Validate(); err != nil {
 		return nil, err

@@ -51,7 +51,7 @@ func (p *Pipeline) Validate() error {
 	p.validateGraphs(&errs)
 
 	if len(errs.Errors) > 0 {
-		return &errs
+		return errs
 	}
 
 	return nil

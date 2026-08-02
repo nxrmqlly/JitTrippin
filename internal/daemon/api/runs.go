@@ -1,11 +1,13 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"os"
 
 	"github.com/nxrmqlly/jittrippin/internal/daemon"
 	"github.com/nxrmqlly/jittrippin/internal/daemon/httpx"
+	"github.com/nxrmqlly/jittrippin/internal/store"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 )
 
@@ -13,7 +15,16 @@ func (ro *Router) handleRunGet(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	run, err := ro.mgr.Get(id)
 	if err != nil {
-		httpx.ErrorJSON(w, http.StatusBadRequest, err.Error())
+
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			httpx.ErrorJSON(w, http.StatusNotFound, "run not found")
+		case errors.Is(err, daemon.ErrArtifactNotFound):
+			httpx.ErrorJSON(w, http.StatusNotFound, "artifact not found")
+		default:
+			httpx.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+		}
+
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, run)
@@ -24,8 +35,13 @@ type runListResponse struct {
 }
 
 func (ro *Router) handleRunList(w http.ResponseWriter, r *http.Request) {
+	runs, err := ro.mgr.List()
+	if err != nil {
+		httpx.ErrorJSON(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	httpx.WriteJSON(w, http.StatusOK, runListResponse{
-		Runs: ro.mgr.List(),
+		Runs: runs,
 	})
 }
 
@@ -42,8 +58,16 @@ func (ro *Router) handleRunSubmit(w http.ResponseWriter, r *http.Request) {
 
 	run, err := ro.mgr.Submit(&p, os.Stdout, os.Stderr)
 	if err != nil {
-		// can only ever return engine.ValidationErrors
-		httpx.ErrorJSON(w, http.StatusBadRequest, err.Error())
+		var verr engine.ValidationErrors
+
+		switch {
+		case errors.As(err, &verr):
+			httpx.ErrorJSON(w, http.StatusBadRequest, err.Error())
+
+		default:
+			httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		}
+
 		return
 	}
 

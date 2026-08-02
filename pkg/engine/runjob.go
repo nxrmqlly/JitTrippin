@@ -75,11 +75,11 @@ func ExecuteJob(ctx context.Context, cfg ExecuteJobConfig) error {
 				return err
 			}
 
-			r, err := cfg.artifactStore.Load(ctx, artifact.NewArtifactRef(
-				cfg.runtime.ID,
-				dep.Job,
-				req,
-			))
+			r, err := cfg.artifactStore.Load(ctx, artifact.ArtifactRef{
+				RunID:        cfg.runtime.ID(),
+				JobName:      dep.Job,
+				ArtifactName: req,
+			})
 			if err != nil {
 				return err
 			}
@@ -113,11 +113,11 @@ func ExecuteJob(ctx context.Context, cfg ExecuteJobConfig) error {
 		if err := cfg.artifactStore.Save(
 			ctx,
 			r,
-			artifact.NewArtifactRef(
-				cfg.runtime.ID,
-				cfg.job.Name,
-				a.Name,
-			),
+			artifact.ArtifactRef{
+				RunID:        cfg.runtime.ID(),
+				JobName:      cfg.job.Name,
+				ArtifactName: a.Name,
+			},
 		); err != nil {
 			return err
 		}

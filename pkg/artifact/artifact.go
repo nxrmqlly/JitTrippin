@@ -12,21 +12,13 @@ type Artifact struct {
 }
 
 type ArtifactRef struct {
-	runID        string
-	jobName      string
-	artifactName string
-}
-
-func NewArtifactRef(runID, jobName, artifactName string) ArtifactRef {
-	return ArtifactRef{
-		runID:        runID,
-		jobName:      jobName,
-		artifactName: artifactName,
-	}
+	RunID        string
+	JobName      string
+	ArtifactName string
 }
 
 func (ar ArtifactRef) RelativePath() string {
-	return filepath.Join(ar.runID, ar.jobName, ar.artifactName)
+	return filepath.Join(ar.RunID, ar.JobName, ar.ArtifactName)
 }
 
 type Store interface {

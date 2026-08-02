@@ -27,10 +27,12 @@ type JobResult struct {
 // PipelineRuntime is a state machine that asynchronously tracks
 // the status of a job in a pipeline while it is running.
 // It is safe to wait on by multiple goroutines
+//
+// PipelineRuntime is not meant to be mutated, use getters.
 type PipelineRuntime struct {
 	// ID is daemon metadata, has no significance for engine
 	// It is an unique UUIDv7
-	ID string
+	id string
 
 	pipeline  *Pipeline
 	scheduler *Scheduler
@@ -47,6 +49,7 @@ func newPipelineRuntime(parentCtx context.Context, id string, p *Pipeline, stdou
 	ctx, cancel := context.WithCancel(parentCtx)
 
 	return &PipelineRuntime{
+		id:        id,
 		pipeline:  p,
 		scheduler: NewScheduler(p),
 		results:   make(chan JobResult, len(p.Jobs)),
@@ -56,6 +59,16 @@ func newPipelineRuntime(parentCtx context.Context, id string, p *Pipeline, stdou
 		cancel:    cancel,
 		done:      make(chan struct{}),
 	}
+}
+
+// ID returns the ID associaated with the PipelineRuntime
+func (pe *PipelineRuntime) ID() string {
+	return pe.id
+}
+
+// Pipeline returns the Pipeline associated with the PipelineRuntime
+func (pe *PipelineRuntime) Pipeline() *Pipeline {
+	return pe.pipeline
 }
 
 // start drives the pipeline scheduler until completion..

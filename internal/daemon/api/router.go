@@ -32,4 +32,7 @@ func (ro *Router) routes() {
 	ro.mux.HandleFunc("GET /api/v1/runs/{id}", ro.handleRunGet)
 	ro.mux.HandleFunc("GET /api/v1/runs", ro.handleRunList)
 	ro.mux.HandleFunc("POST /api/v1/runs", ro.handleRunSubmit)
+
+	ro.mux.HandleFunc("GET /api/v1/runs/{id}/artifacts/", ro.handleArtifactsList)
+	ro.mux.HandleFunc("GET /api/v1/runs/{id}/artifacts/{job}/{artifact}", ro.handleArtifactsServe)
 }

@@ -46,5 +46,4 @@ func PopBack[T any](s *[]T) (T, bool) {
 
 func MustUUIDV7() string {
 	return uuid.Must(uuid.NewV7()).String()
-
 }

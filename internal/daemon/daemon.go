@@ -35,7 +35,7 @@ func NewManager(e *engine.Executor) (*Manager, error) {
 }
 
 // Add sets runs[run.id] to run
-func (m *Manager) Add(run *Run) {
+func (m *Manager) add(run *Run) {
 	m.mu.Lock()
 	m.runs[run.ID()] = run
 	m.mu.Unlock()
@@ -53,7 +53,7 @@ func (m *Manager) Submit(ctx context.Context, p *engine.Pipeline, stdout, stderr
 	}
 
 	run := NewRun(pr, stdout, stderr)
-	m.Add(run)
+	m.add(run)
 
 	go func() {
 		err := pr.Wait()
@@ -88,16 +88,52 @@ func newRunResult(r *Run) *RunResult {
 	}
 }
 
-// Get returns a RunResult and returns an error if the run is not found
-func (m *Manager) Get(id string) (*RunResult, error) {
+// getRun is a helper function to get a Run from and ID,
+// Run is not meant for public consumption, use RunResult instead.
+func (m *Manager) getRun(id string) (*Run, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	if r, ok := m.runs[id]; ok {
-		return newRunResult(r), nil
+	r, ok := m.runs[id]
+	if !ok {
+		return nil, fmt.Errorf("run '%s' not found", id)
 	}
-	return nil, fmt.Errorf("run with ID %q not found", id)
+	return r, nil
+}
 
+// Get returns a RunResult and returns an error if the run is not found
+func (m *Manager) Get(id string) (*RunResult, error) {
+	r, err := m.getRun(id)
+	if err != nil {
+		return nil, fmt.Errorf("run with ID %q not found", id)
+	}
+	return newRunResult(r), nil
+}
+
+type ArtifactResult struct {
+	JobName      string
+	ArtifactName string
+}
+
+func (m *Manager) Artifacts(id string) ([]ArtifactResult, error) {
+	run, err := m.getRun(id)
+	if err != nil {
+		return nil, err
+	}
+
+	var artifacts []ArtifactResult
+
+	p := run.runtime.Pipeline()
+	for _, j := range p.Jobs {
+		for _, a := range j.Artifacts {
+			artifacts = append(artifacts, ArtifactResult{
+				JobName:      j.Name,
+				ArtifactName: a.Name,
+			})
+		}
+	}
+
+	return artifacts, nil
 }
 
 func (m *Manager) List() []*RunResult {
@@ -174,7 +210,7 @@ func NewRun(pr *engine.PipelineRuntime, stdout, stderr io.Writer) *Run {
 }
 
 func (r *Run) ID() string {
-	return r.runtime.ID
+	return r.runtime.ID()
 }
 
 func (r *Run) Status() Status {

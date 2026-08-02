@@ -40,7 +40,7 @@ func (ro *Router) handleRunSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	run, err := ro.mgr.Submit(r.Context(), &p, os.Stdout, os.Stderr)
+	run, err := ro.mgr.Submit(&p, os.Stdout, os.Stderr)
 	if err != nil {
 		// can only ever return engine.ValidationErrors
 		httpx.ErrorJSON(w, http.StatusBadRequest, err.Error())

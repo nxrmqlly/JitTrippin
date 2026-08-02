@@ -2,12 +2,14 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
 	"time"
 
 	"github.com/nxrmqlly/jittrippin/helpers"
+	"github.com/nxrmqlly/jittrippin/pkg/artifact"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 )
 
@@ -20,16 +22,18 @@ const (
 )
 
 type Manager struct {
+	ctx context.Context
+
 	exec *engine.Executor
 
 	mu   sync.RWMutex
 	runs map[string]*Run
 }
 
-func NewManager(e *engine.Executor) (*Manager, error) {
+func NewManager(ctx context.Context, e *engine.Executor) (*Manager, error) {
 	return &Manager{
+		ctx:  ctx,
 		exec: e,
-
 		runs: make(map[string]*Run),
 	}, nil
 }
@@ -41,9 +45,9 @@ func (m *Manager) add(run *Run) {
 	m.mu.Unlock()
 }
 
-func (m *Manager) Submit(ctx context.Context, p *engine.Pipeline, stdout, stderr io.Writer) (*Run, error) {
+func (m *Manager) Submit(p *engine.Pipeline, stdout, stderr io.Writer) (*Run, error) {
 	pr, err := m.exec.Submit(
-		ctx,
+		m.ctx,
 		helpers.MustUUIDV7(),
 		p,
 		stdout,
@@ -134,6 +138,29 @@ func (m *Manager) Artifacts(id string) ([]ArtifactResult, error) {
 	}
 
 	return artifacts, nil
+}
+
+var ErrArtifactNotFound = errors.New("artifact not found")
+
+func (m *Manager) GetArtifact(ctx context.Context, id, jobName, artifactName string) (io.ReadCloser, error) {
+	// check if run exists
+	_, err := m.getRun(id)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := m.exec.ArtifactStore.Load(
+		ctx,
+		artifact.ArtifactRef{
+			RunID:        id,
+			JobName:      jobName,
+			ArtifactName: artifactName,
+		},
+	)
+	if err != nil {
+		return nil, ErrArtifactNotFound
+	}
+	return r, nil
 }
 
 func (m *Manager) List() []*RunResult {

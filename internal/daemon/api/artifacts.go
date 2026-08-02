@@ -2,6 +2,8 @@ package api
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 
 	"github.com/nxrmqlly/jittrippin/internal/daemon/httpx"
@@ -22,7 +24,7 @@ func (ro *Router) handleArtifactsList(w http.ResponseWriter, r *http.Request) {
 
 	res, err := ro.mgr.Artifacts(id)
 	if err != nil {
-		httpx.ErrorJSON(w, http.StatusBadRequest, err.Error())
+		httpx.ErrorJSON(w, http.StatusNotFound, err.Error())
 		return
 	}
 
@@ -46,5 +48,25 @@ func (ro *Router) handleArtifactsList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ro *Router) handleArtifactsServe(w http.ResponseWriter, r *http.Request) {
-    
+	id := r.PathValue("id")
+	job := r.PathValue("job")
+	artifact := r.PathValue("artifact")
+
+	reader, err := ro.mgr.GetArtifact(r.Context(), id, job, artifact)
+	if err != nil {
+		httpx.ErrorJSON(w, http.StatusNotFound, err.Error())
+		return
+	}
+	defer reader.Close()
+
+	filename := artifact + ".tar"
+
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%s`, filename))
+	w.Header().Set("Content-Type", "application/x-tar")
+
+	if _, err := io.Copy(w, reader); err != nil {
+		log.Printf("Artifact stream cut short for %s/%s/%s: %v", id, job, artifact, err)
+		return
+	}
+
 }

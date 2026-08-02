@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/nxrmqlly/jittrippin/internal/daemon"
 	"github.com/nxrmqlly/jittrippin/internal/daemon/api"
@@ -12,9 +16,11 @@ import (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	s := &artifact.LocalStore{
-		Root: ".jt-pipelines",
+		Root:      ".jt-artifacts",
 		Extension: ".tar",
 	}
 
@@ -26,14 +32,14 @@ func main() {
 	}
 
 	e := engine.NewExecutor(engine.ExecutorConfig{
-		MaxParallel: 0,
+		MaxParallel: -1,
 
 		Runner:        r,
 		ArtifactStore: s,
 		Checkouter:    c,
 	})
 
-	mgr, err := daemon.NewManager(e)
+	mgr, err := daemon.NewManager(ctx, e)
 	if err != nil {
 		panic(err)
 	}

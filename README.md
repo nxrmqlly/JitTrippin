@@ -1,5 +1,7 @@
 # JitTrippin (JT)
 
+<img src="./assets/jt-banner.png" alt="JitTrippin Banner">
+
 CI/CD Engine for the average monkeybrain. minus YAML.
 
 JitTrippin is designed to but plug and play with whatever environment you please.

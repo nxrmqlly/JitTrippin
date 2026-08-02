@@ -1,6 +1,5 @@
-# JitTrippin (JT)
-
-<img src="./assets/jt-banner.png" alt="JitTrippin Banner">
+<center><h1>JitTrippin (JT)</h1></center>
+<img src="./assets/jt-banner-thin.png" alt="JitTrippin Banner">
 
 CI/CD Engine for the average monkeybrain. minus YAML.
 

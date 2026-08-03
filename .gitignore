@@ -1,3 +1,4 @@
 .jt-artifacts/
 tmp/
 .env
+.fut_migr

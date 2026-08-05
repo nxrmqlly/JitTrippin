@@ -43,20 +43,46 @@ type Session struct {
 	UserAgent  string
 }
 
+// DeviceCode is future
+type DeviceCode struct {
+	Code      string
+	UserCode  string
+	Status    string
+	UserID    string
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+type OAuthState struct {
+	State      string
+	DeviceCode *string
+	Redirect   string
+	CreatedAt  time.Time
+	ExpiresAt  time.Time
+}
+
+type AuthCode struct {
+	CodeHash  string
+	UserID    string
+	CreatedAt time.Time
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+}
 
 func (s *Store) CreateUser(ctx context.Context, usr *User) error {
 	_, err := s.pool.Exec(ctx, `
-        INSERT INTO users (id, email, display_name, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5)`,
-		usr.ID, usr.Email, usr.DisplayName, usr.CreatedAt, usr.UpdatedAt,
+        INSERT INTO users (id, email, display_name)
+        VALUES ($1, $2, $3)`,
+		usr.ID, usr.Email, usr.DisplayName,
 	)
 
 	if err != nil {
-		return fmt.Errorf("cannot create user %s, %w", usr.ID, err)
+		return fmt.Errorf("cannot create user %s: %w", usr.ID, err)
 	}
 
 	return nil
 }
+
 func (s *Store) GetUserByID(ctx context.Context, id string) (*User, error) {
 	var u User
 
@@ -76,6 +102,7 @@ func (s *Store) GetUserByID(ctx context.Context, id string) (*User, error) {
 
 	return &u, nil
 }
+
 func (s *Store) FindUserByEmail(ctx context.Context, email string) (*User, error) {
 	row := s.pool.QueryRow(ctx, `
         SELECT id, email, display_name, created_at, updated_at
@@ -232,4 +259,171 @@ func (s *Store) GetUserIdentities(ctx context.Context, userID string) ([]UserIde
 	}
 
 	return identities, rows.Err()
+}
+
+// CreateSession creates a sessions database entry.
+// CreatedAt timestamp is managed by database.
+//
+// Must specify: ID, UserID, TokenHash, ExpiresAt, UserAgent
+//
+// Do not specify, or specify zero/nil: CreatedAt, RevokedAt, LastUsedAt
+func (s *Store) CreateSession(ctx context.Context, se *Session) error {
+	_, err := s.pool.Exec(ctx, `
+        INSERT INTO sessions
+		(id, user_id, token_hash, expires_at, user_agent)
+        VALUES ($1, $2, $3, $4, $5,)`,
+		se.ID, se.UserID, se.TokenHash, se.ExpiresAt, se.UserAgent,
+	)
+
+	if err != nil {
+		return fmt.Errorf("cannot create session %s: %w", se.ID, err)
+	}
+
+	return nil
+}
+
+func (s *Store) SessionByTokenHash(ctx context.Context, hash string) (*Session, error) {
+	var se Session
+
+	err := s.pool.QueryRow(ctx, `
+        SELECT id, user_id, token_hash, created_at, expires_at, revoked_at, last_used_at, user_agent
+        FROM sessions
+        WHERE token_hash = $1
+    `, hash).
+		Scan(&se.ID, &se.UserID, &se.TokenHash, &se.CreatedAt, &se.ExpiresAt, &se.RevokedAt, &se.LastUsedAt, &se.UserAgent)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("cannot get session by hash %q, %w", hash, err)
+	}
+
+	return &se, nil
+}
+
+func (s *Store) RevokeSession(ctx context.Context, tokenHash string) error {
+	tag, err := s.pool.Exec(ctx, `
+       	UPDATE sessions
+		SET revoked_at = now()
+		WHERE token_hash = $1
+		`, tokenHash)
+
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("cannot revoke session with hash %s: %w", tokenHash, err)
+	}
+
+	return nil
+}
+
+func (s *Store) TouchSession(ctx context.Context, tokenHash string) error {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE sessions
+		SET last_used_at = now()
+		WHERE token_hash = $1
+		`, tokenHash)
+
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("cannot revoke session with hash %s: %w", tokenHash, err)
+	}
+
+	return nil
+}
+
+// CreateOAuthState creates a new oauth_states database entry.
+// CreatedAt timestamp is managed by database.
+//
+// Must specify: State, Redirect, ExpiresAt
+//
+// Do not specify, or specify zero/nil: DeviceCode, CreatedAt
+func (s *Store) CreateOAuthState(ctx context.Context, oas *OAuthState) error {
+	_, err := s.pool.Exec(ctx, `
+        INSERT INTO oauth_states
+		(state, redirect, expires_at)
+        VALUES ($1, $2, $3)`,
+		oas.State, oas.Redirect, oas.ExpiresAt,
+	)
+
+	if err != nil {
+		return fmt.Errorf("cannot create OAuth State %s: %w", oas.State, err)
+	}
+
+	return nil
+}
+
+// ConsumeOAuthState deletes a oauth_states database entry,
+// provided a state.
+//
+// Returns pointer to a OAuthState with State and Redirect populated
+func (s *Store) ConsumeOAuthState(ctx context.Context, state string) (*OAuthState, error) {
+	row := s.pool.QueryRow(ctx, `
+		DELETE FROM oauth_states
+		WHERE state = $1 AND expires_at > now()
+		RETURNING state, redirect
+	`, state)
+
+	var oas OAuthState
+
+	err := row.Scan(&oas.State, &oas.Redirect)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("cannot consume OAuth state %q, %w", state, err)
+	}
+
+	return &oas, nil
+}
+
+// CreateAuthCode creates a auth_codes database entry.
+// CreatedAt timestamp is managed by database.
+//
+// Must specify: CodeHash, UserID, ExpiresAt
+//
+// Do not specify, or specify zero/nil: CreatedAt, UsedAt
+func (s *Store) CreateAuthCode(ctx context.Context, ac *AuthCode) error {
+	_, err := s.pool.Exec(ctx, `
+        INSERT INTO auth_codes
+		(code_hash, user_id, expires_at)
+        VALUES ($1, $2, $3)`,
+		ac.CodeHash, ac.UserID, ac.ExpiresAt,
+	)
+
+	if err != nil {
+		return fmt.Errorf("cannot create OAuth State %s: %w", ac.CodeHash, err)
+	}
+
+	return nil
+}
+
+func (s *Store) ConsumeAuthCode(ctx context.Context, codeHash string) (*AuthCode, error) {
+	row := s.pool.QueryRow(ctx, `
+		UPDATE auth_codes
+		SET used_at = now()
+		WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now()
+		RETURNING code_hash, user_id, expires_at, used_at 
+	`, codeHash)
+
+	var ac AuthCode
+
+	err := row.Scan(&ac.CodeHash, &ac.UserID, &ac.ExpiresAt, &ac.UsedAt)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("cannot consume OAuth state %q, %w", codeHash, err)
+	}
+
+	return &ac, nil
 }

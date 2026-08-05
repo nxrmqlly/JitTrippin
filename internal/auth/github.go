@@ -27,6 +27,8 @@ func NewGithub(cfg GithubConfig) *Github {
 		ClientID:     cfg.ClientID,
 		ClientSecret: cfg.ClientSecret,
 
+		RedirectURL: cfg.RedirectURL,
+
 		Endpoint: github.Endpoint,
 
 		Scopes: []string{

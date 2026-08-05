@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/nxrmqlly/jittrippin/internal/auth"
 	"github.com/nxrmqlly/jittrippin/internal/daemon"
 	"github.com/nxrmqlly/jittrippin/internal/daemon/api"
 	"github.com/nxrmqlly/jittrippin/internal/store"
@@ -64,11 +65,21 @@ func main() {
 		Checkouter:    ch,
 	})
 
-	mgr, err := daemon.NewManager(ctx, e, st)
+	mgr, err := daemon.NewManager(ctx, daemon.NewManagerConfig{
+		Executor: e,
+		Store:    st,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	router := api.NewRouter(mgr)
+
+	auth := auth.New(st, auth.NewGithub(auth.GithubConfig{
+		RedirectURL:  os.Getenv("JTD_REDIRECT_URL"),
+		ClientID:     os.Getenv("GITHUB_CLIENT_ID"),
+		ClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
+	}))
+
+	router := api.New(mgr, auth)
 
 	srv := http.Server{
 		Addr:    ":5500",

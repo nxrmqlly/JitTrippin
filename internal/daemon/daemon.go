@@ -33,15 +33,20 @@ type Manager struct {
 	running map[string]*Run
 }
 
-func NewManager(ctx context.Context, e *engine.Executor, st *store.Store) (*Manager, error) {
-	if err := st.MarkInterruptedRuns(ctx); err != nil {
+type NewManagerConfig struct {
+	Executor *engine.Executor
+	Store    *store.Store
+}
+
+func NewManager(ctx context.Context, cfg NewManagerConfig) (*Manager, error) {
+	if err := cfg.Store.MarkInterruptedRuns(ctx); err != nil {
 		return nil, err
 	}
 
 	return &Manager{
 		ctx:     ctx,
-		exec:    e,
-		store:   st,
+		exec:    cfg.Executor,
+		store:   cfg.Store,
 		running: make(map[string]*Run),
 	}, nil
 }

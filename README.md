@@ -32,14 +32,17 @@ best-effort.
 - [x] Artifacts Core
 - [X] Checkout Core
 - [ ] CLI (🔄️ In progress)
-- [ ] Pretty printing
-- [ ] REST API service (🔄️ In progress)
-- [ ] Cache
-- [ ] Secrets
-- [ ] Annotated Logs
-- [ ] Retry / Timeout
-- [ ] S3 Artifact Store
+- [ ] CLI: Pretty printing
+- [ ] API (🔄️ In progress)
+- [x] API: Auth!
+- [ ] API: Logs Streaming
+- [ ] API: Authorization 
+- [ ] Engine: Cache
+- [ ] Engine: Secrets
+- [ ] Engine: Annotated Logs
+- [ ] Engine: Retry / Timeout
+- [ ] Engine: S3 Artifact Store
 - [ ] Custom Logger
-- [ ] Variables
-- [ ] Matrix builds
-- [ ] Weighted DAG
+- [ ] Engine: Variables
+- [ ] Engine: Matrix builds
+- [ ] ~~Engine: Weighted DAG~~

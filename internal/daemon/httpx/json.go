@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// BindJSON reads r.Body and parses it into v, sends ErrorJSON if error occours.
+// Returns a bool (ok)
 func BindJSON[T any](w http.ResponseWriter, r *http.Request, v *T) bool {
 	ct := r.Header.Get("Content-Type")
 	if !strings.HasPrefix(ct, "application/json") {

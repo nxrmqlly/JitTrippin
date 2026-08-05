@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/nxrmqlly/jittrippin/helpers"
@@ -101,8 +102,9 @@ func (s *Service) Begin(ctx context.Context, opts BeginOptions) (BeginResult, er
 	}); err != nil {
 		return BeginResult{}, err
 	}
-
-	return BeginResult{URL: pro.AuthURL(state)}, nil
+	url := pro.AuthURL(state)
+	fmt.Println(url)
+	return BeginResult{URL: url}, nil
 }
 
 type CallbackOptions struct {

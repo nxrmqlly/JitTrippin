@@ -3,20 +3,23 @@ package api
 import (
 	"net/http"
 
+	"github.com/nxrmqlly/jittrippin/internal/auth"
 	"github.com/nxrmqlly/jittrippin/internal/daemon"
 )
 
 // Router is a http.Handler like object
 type Router struct {
-	mgr *daemon.Manager
-	mux *http.ServeMux
+	mgr  *daemon.Manager
+	mux  *http.ServeMux
+	auth *auth.Service
 }
 
-// NewRouter returns a pointer to a new http.Handler-like Router object.
-func NewRouter(mgr *daemon.Manager) *Router {
+// New returns a pointer to a new http.Handler-like Router object.
+func New(mgr *daemon.Manager, auth *auth.Service) *Router {
 	ro := &Router{
-		mgr: mgr,
-		mux: http.NewServeMux(),
+		mgr:  mgr,
+		mux:  http.NewServeMux(),
+		auth: auth,
 	}
 	ro.routes()
 	return ro
@@ -35,4 +38,9 @@ func (ro *Router) routes() {
 
 	ro.mux.HandleFunc("GET /api/v1/runs/{id}/artifacts/", ro.handleArtifactsList)
 	ro.mux.HandleFunc("GET /api/v1/runs/{id}/artifacts/{job}/{artifact}", ro.handleArtifactsServe)
+
+	ro.mux.HandleFunc("POST /api/v1/auth/begin", ro.handleAuthBegin)
+	ro.mux.HandleFunc("GET /api/v1/auth/{provider}/callback", ro.handleAuthCallback)
+	ro.mux.HandleFunc("POST /api/v1/auth/exchange", ro.handleAuthExchange)
+	ro.mux.HandleFunc("POST /api/v1/auth/logout", ro.handleAuthLogout)
 }

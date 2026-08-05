@@ -12,7 +12,7 @@ import (
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 )
 
-var ErrNotFound = errors.New("run not found")
+var ErrNotFound = errors.New("generic: not found")
 
 type Store struct {
 	pool *pgxpool.Pool

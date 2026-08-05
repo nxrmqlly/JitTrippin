@@ -34,6 +34,7 @@ func NewGithub(cfg GithubConfig) *Github {
 		Scopes: []string{
 			"read:user",
 			"read:email",
+			"user:email",
 		},
 	}}
 }
@@ -82,6 +83,12 @@ func (g *Github) Exchange(ctx context.Context, code string) (*Identity, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("== OAuth Token ==")
+	fmt.Println("Access Token:", tok.AccessToken[:min(12, len(tok.AccessToken))]+"...")
+	fmt.Println("Token Type:", tok.TokenType)
+	fmt.Println("Expiry:", tok.Expiry)
+	fmt.Println("Scopes:", tok.Extra("scope"))
+	fmt.Printf("Extras: %#v\n", tok.Extra(""))
 
 	client := g.cfg.Client(ctx, tok)
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user", nil)
@@ -106,6 +113,13 @@ func (g *Github) Exchange(ctx context.Context, code string) (*Identity, error) {
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(res.Body)
+
+		fmt.Println("GET /user/emails ->", res.Status)
+		fmt.Println("X-OAuth-Scopes:", res.Header.Get("X-OAuth-Scopes"))
+		fmt.Println("X-Accepted-OAuth-Scopes:", res.Header.Get("X-Accepted-OAuth-Scopes"))
+		fmt.Println("Body:", string(body))
+
 		return nil, fmt.Errorf("github api GET /user returned %q", res.Status)
 	}
 

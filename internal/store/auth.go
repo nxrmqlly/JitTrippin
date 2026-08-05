@@ -271,7 +271,7 @@ func (s *Store) CreateSession(ctx context.Context, se *Session) error {
 	_, err := s.pool.Exec(ctx, `
         INSERT INTO sessions
 		(id, user_id, token_hash, expires_at, user_agent)
-        VALUES ($1, $2, $3, $4, $5,)`,
+        VALUES ($1, $2, $3, $4, $5)`,
 		se.ID, se.UserID, se.TokenHash, se.ExpiresAt, se.UserAgent,
 	)
 

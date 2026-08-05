@@ -46,6 +46,11 @@ func (g *Github) AuthURL(state string, opts ...oauth2.AuthCodeOption) string {
 	return g.cfg.AuthCodeURL(state, opts...)
 }
 
+func addGithubHeaders(req *http.Request) {
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "jtd")
+}
+
 // takes Request.Body
 func tryFindEmail(r io.Reader) (string, error) {
 	type email struct {
@@ -80,6 +85,7 @@ func (g *Github) Exchange(ctx context.Context, code string) (*Identity, error) {
 
 	client := g.cfg.Client(ctx, tok)
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user", nil)
+	addGithubHeaders(req)
 
 	if err != nil {
 		return nil, err
@@ -100,7 +106,7 @@ func (g *Github) Exchange(ctx context.Context, code string) (*Identity, error) {
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("github api GET /user/emails returned %q", res.Status)
+		return nil, fmt.Errorf("github api GET /user returned %q", res.Status)
 	}
 
 	var ur userResponse
@@ -111,6 +117,8 @@ func (g *Github) Exchange(ctx context.Context, code string) (*Identity, error) {
 
 	if ur.Email == "" {
 		req, err := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user/emails", nil)
+		addGithubHeaders(req)
+
 		if err != nil {
 			return nil, err
 		}

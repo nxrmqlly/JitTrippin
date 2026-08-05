@@ -224,4 +224,6 @@ func (s *Service) Authenticate(ctx context.Context, sessionToken string) (*store
 	return usr, nil
 }
 
-func (s *Service) Logout(ctx context.Context, sessionToken string) error
+func (s *Service) Logout(ctx context.Context, sessionToken string) error {
+	return s.store.RevokeSession(ctx, hashToken(sessionToken))
+}

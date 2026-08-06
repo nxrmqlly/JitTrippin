@@ -188,10 +188,9 @@ func (m *Manager) GetArtifact(ctx context.Context, id, jobName, artifactName str
 
 	r, err := m.exec.ArtifactStore.Load(
 		ctx,
-		artifact.ArtifactRef{
-			RunID:        id,
-			JobName:      jobName,
-			ArtifactName: artifactName,
+		artifact.Ref{
+			RunID: id,
+			Path:  artifact.ArtifactPath(jobName, artifactName),
 		},
 	)
 	if err != nil {

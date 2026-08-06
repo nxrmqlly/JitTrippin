@@ -3,7 +3,6 @@ package api
 import (
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/nxrmqlly/jittrippin/internal/auth"
 	"github.com/nxrmqlly/jittrippin/internal/daemon/httpx"
@@ -99,17 +98,6 @@ func (ro *Router) handleAuthExchange(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, authExchangeResponse{
 		SessionToken: res.SessionToken,
 	})
-}
-
-func parseToken(s string) string {
-	if s == "" {
-		return ""
-	}
-	parts := strings.SplitN(s, " ", 2)
-	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return ""
-	}
-	return parts[1]
 }
 
 func (ro *Router) handleAuthLogout(w http.ResponseWriter, r *http.Request) {

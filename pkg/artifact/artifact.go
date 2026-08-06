@@ -11,17 +11,36 @@ type Artifact struct {
 	Path string `json:"path"`
 }
 
-type ArtifactRef struct {
-	RunID        string
-	JobName      string
-	ArtifactName string
+func ArtifactPath(jobName, artifactName string) string {
+	return filepath.Join("artifacts", jobName, artifactName)
 }
 
-func (ar ArtifactRef) RelativePath() string {
-	return filepath.Join(ar.RunID, ar.JobName, ar.ArtifactName)
+type LogPathResult struct {
+	StdoutPath   string
+	StderrPath   string
+	CombinedPath string
+}
+
+func LogPath(jobName, logJob string) LogPathResult {
+	return LogPathResult{
+		StdoutPath:   filepath.Join("logs", jobName, "stdout.log"),
+		StderrPath:   filepath.Join("logs", jobName, "stderr.log"),
+		CombinedPath: filepath.Join("logs", jobName, "combined.log"),
+	}
+}
+
+type Ref struct {
+	RunID string
+
+	// use LogPath or ArtifactPath
+	Path  string
+}
+
+func (r Ref) RelativePath() string {
+	return filepath.Join(r.RunID, r.Path)
 }
 
 type Store interface {
-	Save(ctx context.Context, r io.Reader, ar ArtifactRef) error
-	Load(ctx context.Context, ar ArtifactRef) (io.ReadCloser, error)
+	Create(ctx context.Context, ref Ref) (io.WriteCloser, error)
+	Load(ctx context.Context, ref Ref) (io.ReadCloser, error)
 }

@@ -75,10 +75,9 @@ func ExecuteJob(ctx context.Context, cfg ExecuteJobConfig) error {
 				return err
 			}
 
-			r, err := cfg.artifactStore.Load(ctx, artifact.ArtifactRef{
-				RunID:        cfg.runtime.ID(),
-				JobName:      dep.Job,
-				ArtifactName: req,
+			r, err := cfg.artifactStore.Load(ctx, artifact.Ref{
+				RunID: cfg.runtime.ID(),
+				Path:  artifact.ArtifactPath(dep.Job, req),
 			})
 			if err != nil {
 				return err
@@ -110,17 +109,19 @@ func ExecuteJob(ctx context.Context, cfg ExecuteJobConfig) error {
 			return err
 		}
 
-		if err := cfg.artifactStore.Save(
+		w, err := cfg.artifactStore.Create(
 			ctx,
-			r,
-			artifact.ArtifactRef{
-				RunID:        cfg.runtime.ID(),
-				JobName:      cfg.job.Name,
-				ArtifactName: a.Name,
+			artifact.Ref{
+				RunID: cfg.runtime.ID(),
+				Path:  artifact.ArtifactPath(cfg.job.Name, a.Name),
 			},
-		); err != nil {
+		)
+		if err != nil {
 			return err
 		}
+		defer w.Close()
+
+		io.Copy(w, r)
 
 		if err := r.Close(); err != nil {
 			return err

@@ -36,6 +36,7 @@ best-effort.
 - [ ] API (🔄️ In progress)
 - [x] API: Auth!
 - [ ] API: Logs Streaming
+- [ ] API: HTTP Error Handling
 - [ ] API: Authorization 
 - [ ] Engine: Cache
 - [ ] Engine: Secrets

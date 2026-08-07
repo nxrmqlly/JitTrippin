@@ -5,13 +5,24 @@ import (
 	"io"
 )
 
+type ExecutionCreateConfig struct {
+	Image string
+	Env   map[string]string
+}
+
+type ExecConfig struct {
+	Cmd    string
+	Stdout io.Writer
+	Stderr io.Writer
+}
+
 // It's possible to make do with just Docker concrete type but this
 // is important for future implementations of backend, like Podman.
 //
 // Every backend must implement both Runner and Execution. Like a plugin
 // system where Runner is the plugin and Execution is the real driver
 type Runner interface {
-	Create(ctx context.Context, config ExecutionCreateConfig) (Execution, error)
+	Create(ctx context.Context, cfg ExecutionCreateConfig) (Execution, error)
 	WorkDir() string
 }
 
@@ -30,9 +41,4 @@ type Execution interface {
 
 	// Remove stops and deletes an execution Environment
 	Remove(ctx context.Context) error
-}
-
-type ExecutionCreateConfig struct {
-	Image string
-	Env   map[string]string
 }

@@ -10,11 +10,10 @@ import (
 
 type LocalStore struct {
 	Root      string
-	Extension string
 }
 
 func (s *LocalStore) path(r Ref) string {
-	return filepath.Join(s.Root, r.RelativePath()+s.Extension)
+	return filepath.Join(s.Root, r.RelativePath())
 }
 
 func (s *LocalStore) Create(ctx context.Context, r Ref) (io.WriteCloser, error) {

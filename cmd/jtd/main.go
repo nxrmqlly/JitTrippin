@@ -17,6 +17,7 @@ import (
 	"github.com/nxrmqlly/jittrippin/pkg/artifact"
 	"github.com/nxrmqlly/jittrippin/pkg/checkout"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
+	"github.com/nxrmqlly/jittrippin/pkg/logs"
 	"github.com/nxrmqlly/jittrippin/pkg/runner"
 )
 
@@ -44,10 +45,8 @@ func main() {
 	}
 
 	st := store.New(pool)
-
 	as := &artifact.LocalStore{
-		Root:      ".jt-artifacts",
-		Extension: ".tar",
+		Root: ".jt-artifacts",
 	}
 
 	ch := &checkout.GitCheckouter{}
@@ -57,17 +56,23 @@ func main() {
 		log.Fatal(err)
 	}
 
+	bs := logs.NewBroadcaster()
+
+	ls := logs.NewFileStore(as, bs)
+
 	e := engine.NewExecutor(engine.ExecutorConfig{
 		MaxParallel: -1,
 
 		Runner:        rn,
 		ArtifactStore: as,
 		Checkouter:    ch,
+		LogsStore:     ls,
 	})
 
 	mgr, err := daemon.NewManager(ctx, daemon.NewManagerConfig{
-		Executor: e,
-		Store:    st,
+		Executor:        e,
+		Store:           st,
+		LogsBroadcaster: bs,
 	})
 	if err != nil {
 		log.Fatal(err)

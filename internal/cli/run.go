@@ -10,6 +10,7 @@ import (
 	"github.com/nxrmqlly/jittrippin/pkg/artifact"
 	"github.com/nxrmqlly/jittrippin/pkg/checkout"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
+	"github.com/nxrmqlly/jittrippin/pkg/logs"
 	"github.com/nxrmqlly/jittrippin/pkg/runner"
 	"github.com/urfave/cli/v3"
 )
@@ -66,7 +67,7 @@ func handleRun(ctx context.Context, c *cli.Command) error {
 		return fmt.Errorf("pipeline file or directory path is required")
 	}
 
-	var stderr, stdout io.Writer
+	var stdout, stderr io.Writer
 
 	if quiet {
 		stdout = io.Discard
@@ -75,6 +76,8 @@ func handleRun(ctx context.Context, c *cli.Command) error {
 		stdout = os.Stdout
 		stderr = os.Stderr
 	}
+
+	ls := logs.NewWritersStore(stdout, stderr)
 
 	fmt.Printf("Reading pipeline: %s\n", pipelineFile)
 
@@ -90,14 +93,15 @@ func handleRun(ctx context.Context, c *cli.Command) error {
 
 	store := &artifact.LocalStore{
 		Root:      artifactDir,
-		Extension: ".tar",
 	}
 
 	exec := engine.NewExecutor(engine.ExecutorConfig{
-		MaxParallel:   parallel,
+		MaxParallel: parallel,
+
 		Runner:        r,
 		ArtifactStore: store,
 		Checkouter:    &checkout.GitCheckouter{},
+		LogsStore:     ls,
 	})
 	defer exec.Shutdown()
 
@@ -107,20 +111,14 @@ func handleRun(ctx context.Context, c *cli.Command) error {
 		ctx,
 		helpers.MustUUIDV7(),
 		p,
-		stdout,
-		stderr,
 	)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Waiting for pipeline...")
-
 	if err := pe.Wait(); err != nil {
 		return fmt.Errorf("Pipeline failed: %v", err)
 	}
 
-	fmt.Println("\nPipeline completed successfully!")
-	fmt.Println("Artifacts saved under .jt-artifacts/")
 	return nil
 }

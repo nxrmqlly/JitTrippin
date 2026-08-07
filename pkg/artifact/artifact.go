@@ -12,28 +12,18 @@ type Artifact struct {
 }
 
 func ArtifactPath(jobName, artifactName string) string {
-	return filepath.Join("artifacts", jobName, artifactName)
+	return filepath.Join("artifacts", jobName, artifactName+".tar")
 }
 
-type LogPathResult struct {
-	StdoutPath   string
-	StderrPath   string
-	CombinedPath string
-}
-
-func LogPath(jobName, logJob string) LogPathResult {
-	return LogPathResult{
-		StdoutPath:   filepath.Join("logs", jobName, "stdout.log"),
-		StderrPath:   filepath.Join("logs", jobName, "stderr.log"),
-		CombinedPath: filepath.Join("logs", jobName, "combined.log"),
-	}
+func LogPath(jobName, filename string) string {
+	return filepath.Join("logs", jobName, filename+".log")
 }
 
 type Ref struct {
 	RunID string
 
 	// use LogPath or ArtifactPath
-	Path  string
+	Path string
 }
 
 func (r Ref) RelativePath() string {

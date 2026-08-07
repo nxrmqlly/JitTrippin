@@ -3,12 +3,12 @@ package engine
 import (
 	"context"
 	"fmt"
-	"io"
 	"runtime"
 	"sync"
 
 	"github.com/nxrmqlly/jittrippin/pkg/artifact"
 	"github.com/nxrmqlly/jittrippin/pkg/checkout"
+	"github.com/nxrmqlly/jittrippin/pkg/logs"
 	"github.com/nxrmqlly/jittrippin/pkg/runner"
 )
 
@@ -37,15 +37,13 @@ type PipelineRuntime struct {
 	pipeline  *Pipeline
 	scheduler *Scheduler
 	results   chan JobResult
-	stdout    io.Writer
-	stderr    io.Writer
 	ctx       context.Context
 	cancel    context.CancelFunc
 	done      chan struct{}
 	err       error
 }
 
-func newPipelineRuntime(parentCtx context.Context, id string, p *Pipeline, stdout, stderr io.Writer) *PipelineRuntime {
+func newPipelineRuntime(parentCtx context.Context, id string, p *Pipeline) *PipelineRuntime {
 	ctx, cancel := context.WithCancel(parentCtx)
 
 	return &PipelineRuntime{
@@ -53,8 +51,6 @@ func newPipelineRuntime(parentCtx context.Context, id string, p *Pipeline, stdou
 		pipeline:  p,
 		scheduler: NewScheduler(p),
 		results:   make(chan JobResult, len(p.Jobs)),
-		stdout:    stdout,
-		stderr:    stderr,
 		ctx:       ctx,
 		cancel:    cancel,
 		done:      make(chan struct{}),
@@ -139,6 +135,7 @@ type Executor struct {
 	Runner        runner.Runner
 	Checkouter    checkout.Checkouter
 	ArtifactStore artifact.Store
+	LogsStore     logs.Store
 
 	queue chan WorkItem
 	wg    sync.WaitGroup
@@ -151,6 +148,7 @@ type ExecutorConfig struct {
 	Runner        runner.Runner
 	ArtifactStore artifact.Store
 	Checkouter    checkout.Checkouter
+	LogsStore     logs.Store
 }
 
 func NewExecutor(cfg ExecutorConfig) *Executor {
@@ -158,8 +156,9 @@ func NewExecutor(cfg ExecutorConfig) *Executor {
 		MaxParallel:   cfg.MaxParallel,
 		Runner:        cfg.Runner,
 		ArtifactStore: cfg.ArtifactStore,
-		queue:         make(chan WorkItem),
+		LogsStore:     cfg.LogsStore,
 		Checkouter:    cfg.Checkouter,
+		queue:         make(chan WorkItem),
 	}
 	e.spawnWorkers(e.maxParallel())
 
@@ -198,11 +197,26 @@ func (e *Executor) worker() {
 			continue
 		}
 
-		err := ExecuteJob(work.pe.ctx, ExecuteJobConfig{
+		lref := logs.Ref{
+			RunID: work.pe.ID(),
+			Job:   work.job.Name,
+		}
+
+		jl, err := e.LogsStore.Open(work.pe.ctx, lref)
+		
+		if err != nil {
+			work.pe.results <- JobResult{
+				job: work.job,
+				err: err,
+			}
+			continue
+		}
+
+		err = ExecuteJob(work.pe.ctx, ExecuteJobConfig{
 			runner:        e.Runner,
 			job:           work.job,
-			stdout:        work.pe.stdout,
-			stderr:        work.pe.stderr,
+			stdout:        jl.Stdout,
+			stderr:        jl.Stderr,
 			artifactStore: e.ArtifactStore,
 			runtime:       work.pe,
 			checkouter:    e.Checkouter,
@@ -221,12 +235,12 @@ func (e *Executor) spawnWorkers(n int) {
 
 // Submit validates a pipeline, then adds a pipeline to worker queue.
 // Returns ValidationErrors if validation fails
-func (e *Executor) Submit(ctx context.Context, id string, p *Pipeline, stdout, stderr io.Writer) (*PipelineRuntime, error) {
+func (e *Executor) Submit(ctx context.Context, id string, p *Pipeline) (*PipelineRuntime, error) {
 	if err := p.Validate(); err != nil {
 		return nil, err
 	}
 
-	pe := newPipelineRuntime(ctx, id, p, stdout, stderr)
+	pe := newPipelineRuntime(ctx, id, p)
 	go pe.start(e.queue)
 
 	return pe, nil

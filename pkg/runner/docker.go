@@ -76,11 +76,6 @@ type DockerExecution struct {
 	workDir     string
 }
 
-type ExecConfig struct {
-	Cmd    string
-	Stdout io.Writer
-	Stderr io.Writer
-}
 
 type ExecResult struct {
 	ExitCode int

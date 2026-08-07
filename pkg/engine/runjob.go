@@ -121,7 +121,9 @@ func ExecuteJob(ctx context.Context, cfg ExecuteJobConfig) error {
 		}
 		defer w.Close()
 
-		io.Copy(w, r)
+		if _, err := io.Copy(w, r); err != nil {
+			return err
+		}
 
 		if err := r.Close(); err != nil {
 			return err

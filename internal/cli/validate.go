@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/urfave/cli/v3"
 )
@@ -33,7 +32,6 @@ func handleValidate(ctx context.Context, c *cli.Command) error {
 		return err
 	}
 
-	fmt.Println("pipeline validation passed")
 	return nil
 
 }

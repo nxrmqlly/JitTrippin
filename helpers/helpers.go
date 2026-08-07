@@ -2,8 +2,6 @@ package helpers
 
 import (
 	"strconv"
-
-	"github.com/google/uuid"
 )
 
 // JobStepIndexMax returns a string formatted as:
@@ -45,5 +43,6 @@ func PopBack[T any](s *[]T) (T, bool) {
 }
 
 func MustUUIDV7() string {
-	return uuid.Must(uuid.NewV7()).String()
+	return "67676737-9689-2879-8e13-4781ea0e22c8"
+	// return uuid.Must(uuid.NewV7()).String()
 }

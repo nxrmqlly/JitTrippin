@@ -13,6 +13,7 @@ import (
 	"github.com/nxrmqlly/jittrippin/internal/store"
 	"github.com/nxrmqlly/jittrippin/pkg/artifact"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
+	"github.com/nxrmqlly/jittrippin/pkg/logs"
 )
 
 type Status string
@@ -26,16 +27,18 @@ const (
 type Manager struct {
 	ctx context.Context
 
-	exec  *engine.Executor
-	store *store.Store
+	exec            *engine.Executor
+	store           *store.Store
+	logsBroadcaster *logs.Broadcaster
 
 	mu      sync.RWMutex
 	running map[string]*Run
 }
 
 type NewManagerConfig struct {
-	Executor *engine.Executor
-	Store    *store.Store
+	Executor        *engine.Executor
+	Store           *store.Store
+	LogsBroadcaster *logs.Broadcaster
 }
 
 func NewManager(ctx context.Context, cfg NewManagerConfig) (*Manager, error) {
@@ -44,10 +47,11 @@ func NewManager(ctx context.Context, cfg NewManagerConfig) (*Manager, error) {
 	}
 
 	return &Manager{
-		ctx:     ctx,
-		exec:    cfg.Executor,
-		store:   cfg.Store,
-		running: make(map[string]*Run),
+		ctx:             ctx,
+		exec:            cfg.Executor,
+		store:           cfg.Store,
+		logsBroadcaster: cfg.LogsBroadcaster,
+		running:         make(map[string]*Run),
 	}, nil
 }
 
@@ -63,8 +67,7 @@ func (m *Manager) Submit(p *engine.Pipeline, stdout, stderr io.Writer) (*Run, er
 		m.ctx,
 		helpers.MustUUIDV7(),
 		p,
-		stdout,
-		stderr)
+	)
 
 	if err != nil {
 		return nil, err
@@ -197,6 +200,13 @@ func (m *Manager) GetArtifact(ctx context.Context, id, jobName, artifactName str
 		return nil, ErrArtifactNotFound
 	}
 	return r, nil
+}
+
+func (m *Manager) GetLogs(ctx context.Context, id, jobname, logJobName string) (io.ReadCloser, error) {
+	return m.exec.ArtifactStore.Load(ctx, artifact.Ref{
+		RunID: id,
+		Path:  artifact.LogPath(jobname, logJobName),
+	})
 }
 
 func (m *Manager) List() ([]*RunResult, error) {

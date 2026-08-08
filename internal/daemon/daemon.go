@@ -66,6 +66,10 @@ type SubmitConfig struct {
 }
 
 func (m *Manager) Submit(cfg SubmitConfig) (*Run, error) {
+	if cfg.Pipeline.Visibility == "" {
+		cfg.Pipeline.Visibility = "private"
+	}
+
 	pr, err := m.exec.Submit(
 		m.ctx,
 		helpers.MustUUIDV7(),
@@ -77,13 +81,13 @@ func (m *Manager) Submit(cfg SubmitConfig) (*Run, error) {
 	}
 
 	run := NewRun(pr)
-
 	if err := m.store.CreateRun(m.ctx, store.RunRecord{
-		ID:        run.ID(),
-		OwnerID:   cfg.OwnerID,
-		Status:    string(run.Status()),
-		CreatedAt: run.CreatedAt(),
-		Pipeline:  cfg.Pipeline,
+		ID:         run.ID(),
+		OwnerID:    cfg.OwnerID,
+		Status:     string(run.Status()),
+		CreatedAt:  run.CreatedAt(),
+		Pipeline:   cfg.Pipeline,
+		Visibility: cfg.Pipeline.Visibility,
 	}); err != nil {
 		pr.Stop() // stop if database fails
 		log.Printf("failed to persist run %q: %v", run.ID(), err)
@@ -188,7 +192,7 @@ type GetArtifactConfig struct {
 }
 
 func (m *Manager) GetArtifact(ctx context.Context, cfg GetArtifactConfig) (io.ReadCloser, error) {
-	if _, err := m.store.GetRunSecure(m.ctx, cfg.UserID, cfg.RunID); err != nil {
+	if _, err := m.store.GetRunSecure(m.ctx, cfg.RunID, cfg.UserID); err != nil {
 		return nil, err
 	}
 
@@ -210,7 +214,7 @@ type GetLogsConfig struct {
 }
 
 func (m *Manager) GetLogs(ctx context.Context, cfg GetLogsConfig) (io.ReadCloser, error) {
-	if _, err := m.store.GetRunSecure(m.ctx, cfg.UserID, cfg.RunID); err != nil {
+	if _, err := m.store.GetRunSecure(m.ctx, cfg.RunID, cfg.UserID); err != nil {
 		return nil, err
 	}
 	return m.exec.ArtifactStore.Load(ctx, artifact.Ref{
@@ -225,7 +229,7 @@ type SubscribeLogsConfig struct {
 }
 
 func (m *Manager) SubscribeLogs(cfg SubscribeLogsConfig) (schan <-chan logs.Line, unsubscribe func(), err error) {
-	if _, err := m.store.GetRunSecure(m.ctx, cfg.UserID, cfg.Ref.RunID); err != nil {
+	if _, err := m.store.GetRunSecure(m.ctx, cfg.Ref.RunID, cfg.UserID); err != nil {
 		return nil, nil, err
 	}
 
@@ -264,8 +268,13 @@ type CancelConfig struct {
 }
 
 func (m *Manager) Cancel(cfg CancelConfig) error {
-	if _, err := m.store.GetRunSecure(m.ctx, cfg.RunID, cfg.UserID); err != nil {
+	run, err := m.store.GetRunSecure(m.ctx, cfg.RunID, cfg.UserID)
+	if err != nil {
 		return err
+	}
+
+	if cfg.UserID != run.OwnerID {
+		return ErrForbidden
 	}
 
 	m.mu.RLock()
@@ -273,7 +282,7 @@ func (m *Manager) Cancel(cfg CancelConfig) error {
 	m.mu.RUnlock()
 
 	if !ok {
-		return ErrRunNotRunning
+		return ErrRunNotRunning // 409
 	}
 	r.runtime.Stop()
 	return nil

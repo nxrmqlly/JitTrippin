@@ -130,6 +130,15 @@ func (p *Pipeline) validateFields(errs *ValidationErrors) {
 		})
 	}
 
+	switch p.Visibility {
+	case "", "private", "public":
+	default:
+		errs.Add(ValidationError{
+			Location: pipelineLocation,
+			Message:  "visibility must be 'public' or 'private'",
+		})
+	}
+
 	if len(p.Jobs) == 0 {
 		errs.Add(ValidationError{
 			Location: pipelineLocation,

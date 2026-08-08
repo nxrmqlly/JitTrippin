@@ -58,9 +58,7 @@ func (ro *Router) Authentication(next http.Handler) http.Handler {
 			httpx.ErrorJSON(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
-
 		ctx := withUser(r.Context(), usr)
-
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

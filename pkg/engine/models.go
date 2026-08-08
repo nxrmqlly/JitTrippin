@@ -8,6 +8,7 @@ import (
 type Pipeline struct {
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
+	Visibility  string            `json:"visibility,omitempty"`
 	Checkout    checkout.Checkout `json:"checkout"`
 	Jobs        []Job             `json:"jobs"`
 }

@@ -3,7 +3,6 @@ package logs
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"sync"
 
@@ -22,9 +21,6 @@ type FileStore struct {
 //
 // artifactStore is required but broadcaster may be nil, if there is no use for it.
 func NewFileStore(artifactStore artifact.Store, broadcaster *Broadcaster) *FileStore {
-
-	fmt.Printf("NewFileStore broadcaster=%p\n", broadcaster)
-
 	return &FileStore{
 		artifacts: artifactStore,
 		broadcast: broadcaster,

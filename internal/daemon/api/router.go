@@ -101,10 +101,21 @@ func (g *Group) Handle(pattern string, f http.HandlerFunc, mws ...Middleware) {
 func runError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		httpx.ErrorJSON(w, http.StatusNotFound, "not found")
+		httpx.ErrorJSON(w, http.StatusNotFound, "not found") // 404 generic
+
+	case errors.Is(err, store.ErrRunNotFound):
+		httpx.ErrorJSON(w, http.StatusNotFound, "run not found") // 404
+
+	case errors.Is(err, daemon.ErrArtifactNotFound):
+		httpx.ErrorJSON(w, http.StatusNotFound, "artifact not found") // 404
+
 	case errors.Is(err, daemon.ErrRunNotRunning):
-		httpx.ErrorJSON(w, http.StatusNotFound, "run is not running")
+		httpx.ErrorJSON(w, http.StatusConflict, "run is not running") // 409
+
+	case errors.Is(err, daemon.ErrForbidden):
+		httpx.ErrorJSON(w, http.StatusForbidden, "forbidden") // 403
+
 	default:
-		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error") // 500
 	}
 }

@@ -94,6 +94,7 @@ func (ro *Router) handleLogsGet(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		runError(w, err)
+		return
 	}
 	defer rc.Close()
 

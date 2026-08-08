@@ -35,7 +35,7 @@ best-effort.
 - [ ] CLI: Pretty printing
 - [ ] API (🔄️ In progress)
 - [x] API: Auth!
-- [ ] API: Logs Streaming
+- [x] API: Logs Streaming
 - [ ] API: HTTP Error Handling
 - [ ] API: Authorization 
 - [ ] Engine: Cache

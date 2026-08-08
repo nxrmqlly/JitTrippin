@@ -92,7 +92,7 @@ func handleRun(ctx context.Context, c *cli.Command) error {
 	}
 
 	store := &artifact.LocalStore{
-		Root:      artifactDir,
+		Root: artifactDir,
 	}
 
 	exec := engine.NewExecutor(engine.ExecutorConfig{
@@ -104,8 +104,6 @@ func handleRun(ctx context.Context, c *cli.Command) error {
 		LogsStore:     ls,
 	})
 	defer exec.Shutdown()
-
-	fmt.Printf("Submitting pipeline %q\n", p.Name)
 
 	pe, err := exec.Submit(
 		ctx,

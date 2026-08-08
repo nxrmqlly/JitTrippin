@@ -12,7 +12,7 @@ type Artifact struct {
 }
 
 func ArtifactPath(jobName, artifactName string) string {
-	return filepath.Join("artifacts", jobName, artifactName+".tar")
+	return filepath.Join("artifacts", jobName, artifactName)
 }
 
 func LogPath(jobName, filename string) string {

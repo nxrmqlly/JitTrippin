@@ -26,6 +26,15 @@ func userFromContext(ctx context.Context) (*store.User, bool) {
 	return u, ok
 }
 
+func currentUser(w http.ResponseWriter, r *http.Request) (*store.User, bool) {
+	usr, ok := userFromContext(r.Context())
+	if !ok {
+		httpx.ErrorJSON(w, http.StatusUnauthorized, "unauthorized")
+		return nil, false
+	}
+	return usr, ok
+}
+
 func parseToken(s string) string {
 	if s == "" {
 		return ""
@@ -39,9 +48,6 @@ func parseToken(s string) string {
 
 func (ro *Router) Authentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r.WithContext(r.Context()))
-		return
-
 		h := parseToken(r.Header.Get("Authorization"))
 		if h == "" {
 			httpx.ErrorJSON(w, http.StatusUnauthorized, "authentication credentials are missing or invalid")
@@ -49,7 +55,7 @@ func (ro *Router) Authentication(next http.Handler) http.Handler {
 		}
 		usr, err := ro.auth.Authenticate(r.Context(), h)
 		if err != nil {
-			httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+			httpx.ErrorJSON(w, http.StatusUnauthorized, "unauthorized")
 			return
 		}
 

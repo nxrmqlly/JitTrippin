@@ -14,6 +14,12 @@ import (
 	"golang.org/x/oauth2"
 )
 
+var ErrProviderNotFound = errors.New("provider not found")
+
+var ErrSessionRevoked = errors.New("session already revoked")
+var ErrSessionExpired = errors.New("session has expired")
+
+
 const (
 	SessionLifetime    = 30 * 24 * time.Hour
 	AuthCodeLifetime   = 5 * time.Minute
@@ -83,8 +89,6 @@ type BeginOptions struct {
 type BeginResult struct {
 	URL string
 }
-
-var ErrProviderNotFound = errors.New("provider not found")
 
 func (s *Service) Begin(ctx context.Context, opts BeginOptions) (BeginResult, error) {
 	pro, ok := s.providers[opts.Provider]
@@ -192,9 +196,6 @@ func (s *Service) Exchange(ctx context.Context, opts ExchangeOptions) (ExchangeR
 	return ExchangeResult{SessionToken: seTK}, nil
 
 }
-
-var ErrSessionRevoked = errors.New("session already revoked")
-var ErrSessionExpired = errors.New("session has expired")
 
 func (s *Service) Authenticate(ctx context.Context, sessionToken string) (*store.User, error) {
 	h := hashToken(sessionToken)

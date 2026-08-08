@@ -420,7 +420,7 @@ func (s *Store) ConsumeAuthCode(ctx context.Context, codeHash string) (*AuthCode
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
-
+	
 	if err != nil {
 		return nil, fmt.Errorf("cannot consume OAuth state %q, %w", codeHash, err)
 	}

@@ -3,7 +3,6 @@ package logs
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"sync"
 	"time"
@@ -128,11 +127,6 @@ func (b *Broadcaster) Publish(ref Ref, line Line) {
 
 func (b *Broadcaster) Subscribe(ref Ref) (schan <-chan Line, unsubscribe func()) {
 	ch := make(chan Line, 256)
-	// Subscribe
-	fmt.Printf("SUBSCRIBE: %+v\n", ref)
-	fmt.Printf("Subscribe broadcaster=%p\n", b)
-	fmt.Printf("subs map=%p\n", b.subs)
-
 	b.mu.Lock()
 	if b.subs[ref] == nil {
 		b.subs[ref] = make(map[chan Line]struct{})

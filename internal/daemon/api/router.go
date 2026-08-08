@@ -1,12 +1,15 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"path"
 	"strings"
 
 	"github.com/nxrmqlly/jittrippin/internal/auth"
 	"github.com/nxrmqlly/jittrippin/internal/daemon"
+	"github.com/nxrmqlly/jittrippin/internal/daemon/httpx"
+	"github.com/nxrmqlly/jittrippin/internal/store"
 )
 
 func Chain(h http.Handler, mws ...Middleware) http.Handler {
@@ -32,6 +35,27 @@ func New(mgr *daemon.Manager, auth *auth.Service) *Router {
 	}
 	ro.routes()
 	return ro
+}
+
+func (ro *Router) routes() {
+	ro.Handle("GET /api/v1/health", ro.handleHealth)
+
+	ro.Handle("GET  /api/v1/runs/{id}", ro.handleRunGet, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs", ro.handleRunList, ro.Authentication)
+	ro.Handle("POST /api/v1/runs", ro.handleRunSubmit, ro.Authentication)
+
+	ro.Handle("GET  /api/v1/runs/{id}/artifacts/", ro.handleArtifactsList, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs/{id}/artifacts/{job}/{artifact}", ro.handleArtifactsServe, ro.Authentication)
+
+	ro.Handle("GET  /api/v1/runs/{id}/logs/{job}/", ro.handleLogsGet, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs/{id}/logs/{job}/live", ro.handleLogsLive, ro.Authentication)
+
+	ro.Handle("POST /api/v1/runs/{id}/cancel", ro.handleRunCancel, ro.Authentication)
+
+	ro.Handle("POST /api/v1/auth/begin", ro.handleAuthBegin)
+	ro.Handle("GET  /api/v1/auth/{provider}/callback", ro.handleAuthCallback)
+	ro.Handle("POST /api/v1/auth/exchange", ro.handleAuthExchange)
+	ro.Handle("POST /api/v1/auth/logout", ro.handleAuthLogout)
 }
 
 func (ro *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -74,17 +98,13 @@ func (g *Group) Handle(pattern string, f http.HandlerFunc, mws ...Middleware) {
 	g.ro.Handle(resolvePattern(g.prefix, pattern), f, all...)
 }
 
-func (ro *Router) routes() {
-	ro.Handle("GET /api/v1/health", ro.handleHealth)
-
-	ro.Handle("GET  /api/v1/runs/{id}", ro.handleRunGet, ro.Authentication)
-	ro.Handle("GET  /api/v1/runs", ro.handleRunList, ro.Authentication)
-	ro.Handle("POST /api/v1/runs", ro.handleRunSubmit, ro.Authentication)
-	ro.Handle("GET  /api/v1/runs/{id}/artifacts/", ro.handleArtifactsList, ro.Authentication)
-	ro.Handle("GET  /api/v1/runs/{id}/artifacts/{job}/{artifact}", ro.handleArtifactsServe, ro.Authentication)
-
-	ro.Handle("POST /api/v1/auth/begin", ro.handleAuthBegin)
-	ro.Handle("GET  /api/v1/auth/{provider}/callback", ro.handleAuthCallback)
-	ro.Handle("POST /api/v1/auth/exchange", ro.handleAuthExchange)
-	ro.Handle("POST /api/v1/auth/logout", ro.handleAuthLogout)
+func runError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		httpx.ErrorJSON(w, http.StatusNotFound, "not found")
+	case errors.Is(err, daemon.ErrRunNotRunning):
+		httpx.ErrorJSON(w, http.StatusNotFound, "run is not running")
+	default:
+		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+	}
 }

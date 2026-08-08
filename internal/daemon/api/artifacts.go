@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/nxrmqlly/jittrippin/internal/daemon"
 	"github.com/nxrmqlly/jittrippin/internal/daemon/httpx"
 )
 
@@ -20,11 +21,17 @@ type artifactsListResponse struct {
 }
 
 func (ro *Router) handleArtifactsList(w http.ResponseWriter, r *http.Request) {
+	usr, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
 	id := r.PathValue("id")
-
-	res, err := ro.mgr.Artifacts(id)
+	res, err := ro.mgr.Artifacts(daemon.ArtifactsConfig{
+		RunID:  id,
+		UserID: usr.ID,
+	})
 	if err != nil {
-		httpx.ErrorJSON(w, http.StatusNotFound, err.Error())
+		runError(w, err)
 		return
 	}
 
@@ -33,11 +40,7 @@ func (ro *Router) handleArtifactsList(w http.ResponseWriter, r *http.Request) {
 		artifacts = append(artifacts, artifactsListItem{
 			Job:      ar.JobName,
 			Artifact: ar.ArtifactName,
-			Download: fmt.Sprintf("/api/v1/runs/%s/artifacts/%s/%s",
-				id,
-				ar.JobName,
-				ar.ArtifactName,
-			),
+			Download: fmt.Sprintf("/api/v1/runs/%s/artifacts/%s/%s", id, ar.JobName, ar.ArtifactName),
 		})
 	}
 
@@ -48,25 +51,31 @@ func (ro *Router) handleArtifactsList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ro *Router) handleArtifactsServe(w http.ResponseWriter, r *http.Request) {
+	usr, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
 	id := r.PathValue("id")
 	job := r.PathValue("job")
 	artifact := r.PathValue("artifact")
 
-	reader, err := ro.mgr.GetArtifact(r.Context(), id, job, artifact)
+	reader, err := ro.mgr.GetArtifact(r.Context(), daemon.GetArtifactConfig{
+		RunID:        id,
+		UserID:       usr.ID,
+		JobName:      job,
+		ArtifactName: artifact,
+	})
 	if err != nil {
-		httpx.ErrorJSON(w, http.StatusNotFound, err.Error())
+		runError(w, err)
 		return
 	}
 	defer reader.Close()
 
-	filename := artifact + ".tar"
-
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%s`, filename))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%s`, artifact+".tar"))
 	w.Header().Set("Content-Type", "application/x-tar")
 
 	if _, err := io.Copy(w, reader); err != nil {
 		log.Printf("Artifact stream cut short for %s/%s/%s: %v", id, job, artifact, err)
-		return
 	}
-
 }

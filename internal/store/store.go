@@ -12,8 +12,6 @@ import (
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 )
 
-var ErrNotFound = errors.New("generic: not found")
-
 type Store struct {
 	pool *pgxpool.Pool
 }
@@ -24,6 +22,7 @@ func New(pool *pgxpool.Pool) *Store {
 
 type RunRecord struct {
 	ID         string
+	OwnerID    string
 	Status     string
 	CreatedAt  time.Time
 	FinishedAt *time.Time
@@ -37,9 +36,9 @@ func (s *Store) CreateRun(ctx context.Context, r RunRecord) error {
 		return err
 	}
 	_, err = s.pool.Exec(ctx, `
-			INSERT INTO runs (id, status, created_at, pipeline)
-			VALUES ($1, $2, $3, $4)
-		`, r.ID, r.Status, r.CreatedAt, b)
+			INSERT INTO runs (id, owner_id, status, created_at, pipeline)
+			VALUES ($1, $2, $3, $4, $5)
+		`, r.ID, r.OwnerID, r.Status, r.CreatedAt, b)
 
 	if err != nil {
 		return fmt.Errorf("cannot create run %q, %w", r.ID, err)
@@ -57,24 +56,25 @@ func (s *Store) UpdateRun(ctx context.Context, r RunRecord) error {
 		return fmt.Errorf("cannot update run %q, %w", r.ID, err)
 	}
 	if tag.RowsAffected() == 0 {
-		return ErrNotFound
+		return ErrRunNotFound
 	}
 
 	return nil
 }
-func (s *Store) GetRun(ctx context.Context, id string) (*RunRecord, error) {
+
+func (s *Store) GetRunSecure(ctx context.Context, id, userID string) (*RunRecord, error) {
 	row := s.pool.QueryRow(ctx, `
-			SELECT id, status, created_at, finished_at, error, pipeline
+			SELECT id, owner_id, status, created_at, finished_at, error, pipeline
 			FROM runs
-			WHERE id = $1
-		`, id)
+			WHERE id = $1 AND owner_id = $2
+		`, id, userID)
 
 	var r RunRecord
 	var raw []byte
 
-	err := row.Scan(&r.ID, &r.Status, &r.CreatedAt, &r.FinishedAt, &r.Error, &raw)
+	err := row.Scan(&r.ID, &r.OwnerID, &r.Status, &r.CreatedAt, &r.FinishedAt, &r.Error, &raw)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrNotFound
+		return nil, ErrRunNotFound // mask forbidden
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get run %q, %w", id, err)
@@ -88,14 +88,43 @@ func (s *Store) GetRun(ctx context.Context, id string) (*RunRecord, error) {
 	return &r, nil
 }
 
-type ListRunsConfig struct{}
+// func (s *Store) GetRun(ctx context.Context, id string) (*RunRecord, error) {
+// 	row := s.pool.QueryRow(ctx, `
+// 			SELECT id, owner_id, status, created_at, finished_at, error, pipeline
+// 			FROM runs
+// 			WHERE id = $1
+// 		`, id)
+
+// 	var r RunRecord
+// 	var raw []byte
+
+// 	err := row.Scan(&r.ID, &r.OwnerID, &r.Status, &r.CreatedAt, &r.FinishedAt, &r.Error, &raw)
+// 	if errors.Is(err, pgx.ErrNoRows) {
+// 		return nil, ErrRunNotFound
+// 	}
+// 	if err != nil {
+// 		return nil, fmt.Errorf("cannot get run %q, %w", id, err)
+// 	}
+
+// 	var p engine.Pipeline
+// 	if err := json.Unmarshal(raw, &p); err != nil {
+// 		return nil, fmt.Errorf("cannot process pipeline for run %q: %w", id, err)
+// 	}
+// 	r.Pipeline = &p
+// 	return &r, nil
+// }
+
+type ListRunsConfig struct {
+	OwnerID string
+}
 
 func (s *Store) ListRuns(ctx context.Context, cfg ListRunsConfig) ([]RunRecord, error) {
 	rows, err := s.pool.Query(ctx, `
 			SELECT id, status, created_at, finished_at, error, pipeline
 			FROM runs
+			WHERE owner_id = $1
 			ORDER BY created_at DESC
-		`)
+		`, cfg.OwnerID)
 	if err != nil {
 		return nil, fmt.Errorf("cannt list runs: %w", err)
 	}
@@ -106,7 +135,7 @@ func (s *Store) ListRuns(ctx context.Context, cfg ListRunsConfig) ([]RunRecord, 
 		if err := rows.Scan(
 			&r.ID, &r.Status, &r.CreatedAt, &r.FinishedAt, &r.Error, &raw,
 		); err != nil {
-			return nil, ErrNotFound
+			return nil, ErrRunNotFound
 		}
 
 		var p engine.Pipeline
@@ -119,19 +148,6 @@ func (s *Store) ListRuns(ctx context.Context, cfg ListRunsConfig) ([]RunRecord, 
 	}
 
 	return out, rows.Err()
-}
-func (s *Store) DeleteRun(ctx context.Context, id string) error {
-	tag, err := s.pool.Exec(ctx, `
-			DELETE FROM runs
-			WHERE id = $1
-		`, id)
-	if err != nil {
-		return fmt.Errorf("cannot delete run %q: %w", id, err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return nil
 }
 
 func (s *Store) MarkInterruptedRuns(ctx context.Context) error {

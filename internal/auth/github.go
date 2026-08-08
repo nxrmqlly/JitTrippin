@@ -84,8 +84,6 @@ func (g *Github) Exchange(ctx context.Context, code string) (*Identity, error) {
 		return nil, err
 	}
 	
-	fmt.Printf("Extras: %#v\n", tok.Extra(""))
-
 	client := g.cfg.Client(ctx, tok)
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user", nil)
 	addGithubHeaders(req)

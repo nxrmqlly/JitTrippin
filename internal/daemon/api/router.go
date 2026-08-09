@@ -12,13 +12,6 @@ import (
 	"github.com/nxrmqlly/jittrippin/internal/store"
 )
 
-func Chain(h http.Handler, mws ...Middleware) http.Handler {
-	for i := len(mws) - 1; i >= 0; i-- {
-		h = mws[i](h)
-	}
-	return h
-}
-
 // Router is a http.Handler like object
 type Router struct {
 	mgr  *daemon.Manager
@@ -38,24 +31,24 @@ func New(mgr *daemon.Manager, auth *auth.Service) *Router {
 }
 
 func (ro *Router) routes() {
-	ro.Handle("GET /api/v1/health", ro.handleHealth)
+	ro.Handle("GET /api/v1/health", ro.handleHealth, ro.Logging)
 
-	ro.Handle("GET  /api/v1/runs/{id}", ro.handleRunGet, ro.Authentication)
-	ro.Handle("GET  /api/v1/runs", ro.handleRunList, ro.Authentication)
-	ro.Handle("POST /api/v1/runs", ro.handleRunSubmit, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs/{id}", ro.handleRunGet, ro.Logging, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs", ro.handleRunList, ro.Logging, ro.Authentication)
+	ro.Handle("POST /api/v1/runs", ro.handleRunSubmit, ro.Logging, ro.Authentication)
 
-	ro.Handle("GET  /api/v1/runs/{id}/artifacts/", ro.handleArtifactsList, ro.Authentication)
-	ro.Handle("GET  /api/v1/runs/{id}/artifacts/{job}/{artifact}", ro.handleArtifactsServe, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs/{id}/artifacts/", ro.handleArtifactsList, ro.Logging, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs/{id}/artifacts/{job}/{artifact}", ro.handleArtifactsServe, ro.Logging, ro.Authentication)
 
-	ro.Handle("GET  /api/v1/runs/{id}/logs/{job}/", ro.handleLogsGet, ro.Authentication)
-	ro.Handle("GET  /api/v1/runs/{id}/logs/{job}/live", ro.handleLogsLive, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs/{id}/logs/{job}/", ro.handleLogsGet, ro.Logging, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs/{id}/logs/{job}/live", ro.handleLogsLive, ro.Logging, ro.Authentication)
 
-	ro.Handle("POST /api/v1/runs/{id}/cancel", ro.handleRunCancel, ro.Authentication)
+	ro.Handle("POST /api/v1/runs/{id}/cancel", ro.handleRunCancel, ro.Logging, ro.Authentication)
 
-	ro.Handle("POST /api/v1/auth/begin", ro.handleAuthBegin)
-	ro.Handle("GET  /api/v1/auth/{provider}/callback", ro.handleAuthCallback)
-	ro.Handle("POST /api/v1/auth/exchange", ro.handleAuthExchange)
-	ro.Handle("POST /api/v1/auth/logout", ro.handleAuthLogout)
+	ro.Handle("POST /api/v1/auth/begin", ro.handleAuthBegin, ro.Logging)
+	ro.Handle("GET  /api/v1/auth/{provider}/callback", ro.handleAuthCallback, ro.Logging)
+	ro.Handle("POST /api/v1/auth/exchange", ro.handleAuthExchange, ro.Logging)
+	ro.Handle("POST /api/v1/auth/logout", ro.handleAuthLogout, ro.Logging)
 }
 
 func (ro *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {

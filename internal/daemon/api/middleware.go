@@ -2,8 +2,10 @@ package api
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/nxrmqlly/jittrippin/internal/daemon/httpx"
 	"github.com/nxrmqlly/jittrippin/internal/store"
@@ -46,6 +48,13 @@ func parseToken(s string) string {
 	return parts[1]
 }
 
+func Chain(h http.Handler, mws ...Middleware) http.Handler {
+	for i := len(mws) - 1; i >= 0; i-- {
+		h = mws[i](h)
+	}
+	return h
+}
+
 func (ro *Router) Authentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := parseToken(r.Header.Get("Authorization"))
@@ -60,5 +69,29 @@ func (ro *Router) Authentication(next http.Handler) http.Handler {
 		}
 		ctx := withUser(r.Context(), usr)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+type logResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *logResponseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (ro *Router) Logging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rw := &logResponseWriter{
+			ResponseWriter: w,
+			statusCode:     http.StatusOK, // go defaults to 200 OK
+		}
+		next.ServeHTTP(rw, r)
+		elapsed := time.Since(start)
+
+		log.Printf("%d %s %s %s", rw.statusCode, elapsed, r.Method, r.URL.Path)
 	})
 }

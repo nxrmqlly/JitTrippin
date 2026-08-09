@@ -48,6 +48,16 @@ func (r *DockerRunner) Create(ctx context.Context, cfg ExecutionCreateConfig) (E
 			Cmd:        []string{"tail", "-f", "/dev/null"},
 			Env:        envStrings(cfg.Env),
 			WorkingDir: wd,
+			User:       "10001:10001",
+		},
+		HostConfig: &container.HostConfig{
+			Resources: container.Resources{
+				Memory:    512 * 1024 * 1024,
+				NanoCPUs:  1_000_000_000,
+				PidsLimit: new(int64(100)),
+			},
+			CapDrop:     []string{"ALL"},
+			SecurityOpt: []string{"no-new-privileges:true"},
 		},
 	})
 
@@ -75,7 +85,6 @@ type DockerExecution struct {
 	containerID string
 	workDir     string
 }
-
 
 type ExecResult struct {
 	ExitCode int

@@ -99,7 +99,13 @@ func (gc *GitCheckouter) Checkout(ctx context.Context, c Checkout) (io.ReadClose
 
 	var stderr bytes.Buffer
 
-	clone := exec.CommandContext(ctx, "git", "clone", c.URL, d)
+	args := []string{"clone", "--depth=1", "--single-branch"}
+	if c.Ref != "" {
+		args = append(args, "--branch", c.Ref)
+	}
+	args = append(args, c.URL, d)
+
+	clone := exec.CommandContext(ctx, "git", args...)
 	clone.Stderr = &stderr
 
 	if err := clone.Run(); err != nil {

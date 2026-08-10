@@ -69,7 +69,7 @@ func main() {
 		LogsStore:     ls,
 	})
 
-	mgr, err := daemon.NewManager(ctx, daemon.NewManagerConfig{
+	mgr, err := daemon.NewManager(ctx, daemon.ManagerConfig{
 		Executor:        e,
 		Store:           st,
 		LogsBroadcaster: bs,

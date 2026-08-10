@@ -1,15 +1,22 @@
 package daemon
 
 import (
+	"archive/tar"
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log"
+	"path"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/nxrmqlly/jittrippin/helpers"
 	"github.com/nxrmqlly/jittrippin/internal/store"
 	"github.com/nxrmqlly/jittrippin/pkg/artifact"
+	"github.com/nxrmqlly/jittrippin/pkg/checkout"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 	"github.com/nxrmqlly/jittrippin/pkg/logs"
 )
@@ -33,13 +40,13 @@ type Manager struct {
 	running map[string]*Run
 }
 
-type NewManagerConfig struct {
+type ManagerConfig struct {
 	Executor        *engine.Executor
 	Store           *store.Store
 	LogsBroadcaster *logs.Broadcaster
 }
 
-func NewManager(ctx context.Context, cfg NewManagerConfig) (*Manager, error) {
+func NewManager(ctx context.Context, cfg ManagerConfig) (*Manager, error) {
 	if err := cfg.Store.MarkInterruptedRuns(ctx); err != nil {
 		return nil, err
 	}
@@ -286,6 +293,98 @@ func (m *Manager) Cancel(cfg CancelConfig) error {
 	}
 	r.runtime.Stop()
 	return nil
+}
+
+func loadPipelines(r io.Reader) ([]*engine.Pipeline, error) {
+	tr := tar.NewReader(r)
+
+	var pipelines []*engine.Pipeline
+
+	for {
+		h, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read checkout archive: %w", err)
+		}
+
+		if h.Typeflag != tar.TypeReg {
+			continue
+		}
+
+		// Only .jt/*.json
+		name := path.Clean(h.Name)
+		if !strings.HasPrefix(name, ".jt/") ||
+			!strings.HasSuffix(name, ".json") {
+			continue
+		}
+
+		var p engine.Pipeline
+		if err := json.NewDecoder(tr).Decode(&p); err != nil {
+			return nil, fmt.Errorf("parse pipeline %q: %w", name, err)
+		}
+
+		pipelines = append(pipelines, &p)
+	}
+
+	return pipelines, nil
+}
+
+func (m *Manager) GetTrackedRepositoryByGithubID(githubID int64) (*TrackedRepository, error) {
+	repo, err := m.store.GetTrackedRepositoryByGithubID(m.ctx, githubID)
+	if err != nil {
+		return nil, err
+	}
+	return &TrackedRepository{
+		ID:             repo.ID,
+		OwnerID:        repo.OwnerID,
+		GithubRepoID:   repo.GithubRepoID,
+		GithubFullName: repo.GithubFullName,
+		Branch:         repo.Branch,
+	}, nil
+}
+
+type TrackedRepository struct {
+	ID             string
+	OwnerID        string
+	GithubRepoID   int64
+	GithubFullName string
+	Branch         string
+}
+
+func (m *Manager) SubmitRepository(tracked TrackedRepository, commit string) ([]*Run, error) {
+
+	url := "https://github.com/" + tracked.GithubFullName + ".git"
+
+	checkout, err := m.exec.Checkouter.Checkout(m.ctx, checkout.Checkout{
+		URL: url,
+		Ref: commit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer checkout.Close()
+
+	pipelines, err := loadPipelines(checkout)
+	if err != nil {
+		return nil, err
+	}
+
+	var runs []*Run
+	for _, p := range pipelines {
+		run, err := m.Submit(SubmitConfig{
+			OwnerID:  tracked.OwnerID,
+			Pipeline: p,
+		})
+		if err != nil {
+			return runs, fmt.Errorf("submit pipeline: %w", err)
+		}
+
+		runs = append(runs, run)
+	}
+
+	return runs, nil
 }
 
 type Run struct {

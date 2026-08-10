@@ -17,6 +17,8 @@ type Router struct {
 	mgr  *daemon.Manager
 	mux  *http.ServeMux
 	auth *auth.Service
+
+	GlobalMws []Middleware
 }
 
 // New returns a pointer to a new http.Handler-like Router object.
@@ -31,24 +33,29 @@ func New(mgr *daemon.Manager, auth *auth.Service) *Router {
 }
 
 func (ro *Router) routes() {
-	ro.Handle("GET /api/v1/health", ro.handleHealth, ro.Logging)
+	ro.GlobalMws = append(ro.GlobalMws, ro.Logging)
 
-	ro.Handle("GET  /api/v1/runs/{id}", ro.handleRunGet, ro.Logging, ro.Authentication)
-	ro.Handle("GET  /api/v1/runs", ro.handleRunList, ro.Logging, ro.Authentication)
-	ro.Handle("POST /api/v1/runs", ro.handleRunSubmit, ro.Logging, ro.Authentication)
+	ro.Handle("GET /api/v1/health", ro.handleHealth)
 
-	ro.Handle("GET  /api/v1/runs/{id}/artifacts/", ro.handleArtifactsList, ro.Logging, ro.Authentication)
-	ro.Handle("GET  /api/v1/runs/{id}/artifacts/{job}/{artifact}", ro.handleArtifactsServe, ro.Logging, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs/{id}", ro.handleRunGet, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs", ro.handleRunList, ro.Authentication)
+	ro.Handle("POST /api/v1/runs", ro.handleRunSubmit, ro.Authentication)
 
-	ro.Handle("GET  /api/v1/runs/{id}/logs/{job}/", ro.handleLogsGet, ro.Logging, ro.Authentication)
-	ro.Handle("GET  /api/v1/runs/{id}/logs/{job}/live", ro.handleLogsLive, ro.Logging, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs/{id}/artifacts/", ro.handleArtifactsList, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs/{id}/artifacts/{job}/{artifact}", ro.handleArtifactsServe, ro.Authentication)
 
-	ro.Handle("POST /api/v1/runs/{id}/cancel", ro.handleRunCancel, ro.Logging, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs/{id}/logs/{job}/", ro.handleLogsGet, ro.Authentication)
+	ro.Handle("GET  /api/v1/runs/{id}/logs/{job}/live", ro.handleLogsLive, ro.Authentication)
 
-	ro.Handle("POST /api/v1/auth/begin", ro.handleAuthBegin, ro.Logging)
-	ro.Handle("GET  /api/v1/auth/{provider}/callback", ro.handleAuthCallback, ro.Logging)
-	ro.Handle("POST /api/v1/auth/exchange", ro.handleAuthExchange, ro.Logging)
-	ro.Handle("POST /api/v1/auth/logout", ro.handleAuthLogout, ro.Logging)
+	ro.Handle("POST /api/v1/runs/{id}/cancel", ro.handleRunCancel, ro.Authentication)
+
+	ro.Handle("POST /api/v1/auth/begin", ro.handleAuthBegin)
+	ro.Handle("GET  /api/v1/auth/{provider}/callback", ro.handleAuthCallback)
+	ro.Handle("POST /api/v1/auth/exchange", ro.handleAuthExchange)
+	ro.Handle("POST /api/v1/auth/logout", ro.handleAuthLogout)
+
+	ro.Handle("POST /api/v1/integrations/github/webhook", ro.handleGithubWebhook)
+
 }
 
 func (ro *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +63,7 @@ func (ro *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ro *Router) Handle(pattern string, f http.HandlerFunc, mws ...Middleware) {
-	ro.mux.Handle(pattern, Chain(f, mws...))
+	ro.mux.Handle(pattern, Chain(f, append(ro.GlobalMws, mws...)...))
 }
 
 type Group struct {

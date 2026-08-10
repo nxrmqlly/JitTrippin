@@ -19,7 +19,7 @@ No support is provided for broken JT on Windows machines.
 JT also assumes that Pipelines will run in Linux containers. Support for Windows containers is
 best-effort.
 
-## Roadmap
+## Roadmap till v0.1
 
 (in best-effort order of priority, or what's more fun to implement)
 
@@ -31,13 +31,15 @@ best-effort.
 - [x] Runner Core
 - [x] Artifacts Core
 - [X] Checkout Core
+- [ ] Integrations: Github Integration!
 - [ ] CLI (🔄️ In progress)
 - [ ] CLI: Pretty printing
 - [ ] API (🔄️ In progress)
 - [x] API: Auth!
 - [x] API: Logs Streaming
-- [ ] API: HTTP Error Handling
-- [ ] API: Authorization 
+- [x] API: Per Pipeline Visibility
+- [x] API: HTTP Error Handling
+- [x] API: Authorization 
 - [ ] Engine: Cache
 - [ ] Engine: Secrets
 - [ ] Engine: Annotated Logs

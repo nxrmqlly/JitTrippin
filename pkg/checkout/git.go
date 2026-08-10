@@ -99,7 +99,7 @@ func (gc *GitCheckouter) Checkout(ctx context.Context, c Checkout) (io.ReadClose
 
 	var stderr bytes.Buffer
 
-	args := []string{"clone", "--depth=1", "--single-branch"}
+	args := []string{"clone", "--no-checkout", "--depth=1", "--single-branch"}
 	if c.Ref != "" {
 		args = append(args, "--branch", c.Ref)
 	}
@@ -113,16 +113,42 @@ func (gc *GitCheckouter) Checkout(ctx context.Context, c Checkout) (io.ReadClose
 		return nil, fmt.Errorf("git clone failed: %s: %w", stderr.String(), err)
 	}
 
+	stderr.Reset()
 	if c.Ref != "" {
+
+		fetch := exec.CommandContext(ctx, "git", "fetch", "--depth=1", "origin", c.Ref)
+		fetch.Dir = d
+		fetch.Stderr = &stderr
+
+		if err := fetch.Run(); err != nil {
+			os.RemoveAll(d)
+			return nil, fmt.Errorf(
+				"git fetch ref '%s' failed: %s: %w",
+				c.Ref,
+				stderr.String(),
+				err,
+			)
+		}
+
 		stderr.Reset()
 
-		checkout := exec.CommandContext(ctx, "git", "checkout", c.Ref)
+		checkout := exec.CommandContext(ctx, "git", "checkout", "FETCH_HEAD")
 		checkout.Dir = d
 		checkout.Stderr = &stderr
 
 		if err := checkout.Run(); err != nil {
 			os.RemoveAll(d)
-			return nil, fmt.Errorf("git checkout to '%s': %s: %w", c.Ref, stderr.String(), err)
+			return nil, fmt.Errorf("git checkout to FETCH_HEAD: %s: %w", stderr.String(), err)
+		}
+	} else {
+		// no ref specified, grab default
+		checkout := exec.CommandContext(ctx, "git", "checkout", "HEAD")
+		checkout.Dir = d
+		checkout.Stderr = &stderr
+
+		if err := checkout.Run(); err != nil {
+			os.RemoveAll(d)
+			return nil, fmt.Errorf("git checkout to default branch: %s: %w", stderr.String(), err)
 		}
 	}
 

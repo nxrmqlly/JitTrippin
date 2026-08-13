@@ -69,6 +69,22 @@ type SubmitConfig struct {
 	Pipeline *engine.Pipeline
 }
 
+func (m *Manager) GetUserIdentities(userID string) ([]store.UserIdentity, error) {
+	return m.store.GetUserIdentities(m.ctx, userID)
+}
+
+func (m *Manager) ListTrackedRepositoriesByProviderOwner(userID string) ([]*store.TrackedRepository, error) {
+	return m.store.ListTrackedRepositoriesByOwner(m.ctx, userID)
+}
+
+func (m *Manager) GetTrackedRepositoryByID(id string) (*store.TrackedRepository, error) {
+	return m.store.GetTrackedRepositoryByID(m.ctx, id)
+}
+
+func (m *Manager) DeleteTrackedRepository(id string) error {
+	return m.store.DeleteTrackedRepository(m.ctx, id)
+}
+
 func (m *Manager) Submit(ownerID string, pipeline *engine.Pipeline) (*Run, error) {
 	if pipeline.Visibility == "" {
 		pipeline.Visibility = "private"

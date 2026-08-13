@@ -14,6 +14,7 @@ import (
 	"github.com/nxrmqlly/jittrippin/internal/auth"
 	"github.com/nxrmqlly/jittrippin/internal/daemon"
 	"github.com/nxrmqlly/jittrippin/internal/daemon/api"
+	"github.com/nxrmqlly/jittrippin/internal/github"
 	"github.com/nxrmqlly/jittrippin/internal/store"
 	"github.com/nxrmqlly/jittrippin/pkg/artifact"
 	"github.com/nxrmqlly/jittrippin/pkg/checkout"
@@ -53,6 +54,9 @@ func main() {
 	keyb, err := hex.DecodeString(hexKey)
 	if err != nil {
 		log.Fatalf("JTD_SIGNING_SECRET in wrong format, must be 64 hex chars")
+	}
+	if len(keyb) != 32 {
+		log.Fatalf("JTD_SIGNING_SECRET must be exactly 32 bytes (64 hex chars)")
 	}
 	encKey = keyb
 	st := store.New(pool, encKey)
@@ -95,7 +99,13 @@ func main() {
 		ClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
 	}))
 
-	router := api.New(mgr, auth)
+	gh, err := github.New(github.Config{
+		AppID:      os.Getenv("GITHUB_APP_ID"),
+		PrivateKey: os.Getenv("GITHUB_PRIVATE_KEY_PATH"),
+		PublicURL:  os.Getenv("JTD_PUBLIC_URL"),
+	}, st, mgr)
+
+	router := api.New(mgr, auth, gh)
 
 	srv := http.Server{
 		Addr:    ":5500",

@@ -7,6 +7,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -14,10 +15,24 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nxrmqlly/jittrippin/internal/daemon"
 	"github.com/nxrmqlly/jittrippin/internal/daemon/httpx"
+	"github.com/nxrmqlly/jittrippin/internal/github"
 	"github.com/nxrmqlly/jittrippin/internal/store"
 )
+
+func (ro *Router) userGithubToken(ctx context.Context, userID string) (string, error) {
+	identities, err := ro.mgr.GetUserIdentities(userID)
+	if err != nil {
+		return "", err
+	}
+	for _, id := range identities {
+		act := string(id.AccessToken)
+		if id.Provider == "github" && act != "" {
+			return act, nil
+		}
+	}
+	return "", errors.New("github: not linked")
+}
 
 func VerifyWebhook(secret string, payload []byte, signature string) bool {
 	const pre = "sha256="
@@ -141,14 +156,76 @@ func (ro *Router) handleGithubAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ro.mgr.TrackRepository(daemon.TrackRepositoryConfig{
-		OwnerID:              usr.ID,
-		Provider:             "",
-		ProviderInstance:     "github.com",
-		ProviderRepositoryID: "",
-		FullName:             "",
-		Branch:               "",
-	})
+	var body githubAddBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.ErrorJSON(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	token, err := ro.userGithubToken(r.Context(), usr.ID)
+	if err != nil {
+		httpx.ErrorJSON(w, http.StatusForbidden, "github not linked")
+		return
+	}
+
+	if err := ro.gh.TrackRepository(r.Context(), token, usr.ID, body.RepoFullName, body.Branch); err != nil {
+		if errors.Is(err, github.ErrInstallNotFound) {
+			httpx.ErrorJSON(w, http.StatusBadRequest, "app is not installed for this repository owner")
+			return
+		}
+		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
-func (ro *Router) handleGithubList(w http.ResponseWriter, r *http.Request)
-func (ro *Router) handleGithubRemove(w http.ResponseWriter, r *http.Request)
+
+func (ro *Router) handleGithubList(w http.ResponseWriter, r *http.Request) {
+	usr, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
+	repos, err := ro.mgr.ListTrackedRepositoriesByProviderOwner(usr.ID)
+	if err != nil {
+		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, repos)
+}
+
+type githubRemoveBody struct {
+	ID string `json:"id"`
+}
+
+func (ro *Router) handleGithubRemove(w http.ResponseWriter, r *http.Request) {
+	usr, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
+	var body githubRemoveBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.ErrorJSON(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+
+	repo, err := ro.mgr.GetTrackedRepositoryByID(body.ID)
+	if err != nil {
+		if errors.Is(err, store.ErrRepoNotFound) {
+			httpx.ErrorJSON(w, http.StatusNotFound, "not found")
+			return
+		}
+		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	if repo.OwnerID != usr.ID {
+		httpx.ErrorJSON(w, http.StatusNotFound, "not found")
+		return
+	}
+	if err := ro.mgr.DeleteTrackedRepository(body.ID); err != nil {
+		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

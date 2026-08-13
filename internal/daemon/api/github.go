@@ -56,7 +56,7 @@ type User struct {
 }
 
 type Installation struct {
-	ID string `json:"id"`
+	ID int64 `json:"id"`
 }
 
 func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {

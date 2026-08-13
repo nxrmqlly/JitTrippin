@@ -64,7 +64,7 @@ func (ro *Router) handleRunSubmit(w http.ResponseWriter, r *http.Request) {
 	if !httpx.BindJSON(w, r, &p) {
 		return
 	}
-	run, err := ro.mgr.Submit(daemon.SubmitConfig{Pipeline: &p, OwnerID: usr.ID})
+	run, err := ro.mgr.Submit(usr.ID, &p)
 	if err != nil {
 		var verr engine.ValidationErrors
 		switch {

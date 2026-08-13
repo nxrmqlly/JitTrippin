@@ -72,15 +72,15 @@ type SubmitConfig struct {
 	Pipeline *engine.Pipeline
 }
 
-func (m *Manager) Submit(cfg SubmitConfig) (*Run, error) {
-	if cfg.Pipeline.Visibility == "" {
-		cfg.Pipeline.Visibility = "private"
+func (m *Manager) Submit(ownerID string, pipeline *engine.Pipeline) (*Run, error) {
+	if pipeline.Visibility == "" {
+		pipeline.Visibility = "private"
 	}
 
 	pr, err := m.exec.Submit(
 		m.ctx,
 		helpers.MustUUIDV7(),
-		cfg.Pipeline,
+		pipeline,
 	)
 
 	if err != nil {
@@ -90,11 +90,11 @@ func (m *Manager) Submit(cfg SubmitConfig) (*Run, error) {
 	run := NewRun(pr)
 	if err := m.store.CreateRun(m.ctx, store.RunRecord{
 		ID:         run.ID(),
-		OwnerID:    cfg.OwnerID,
+		OwnerID:    ownerID,
 		Status:     string(run.Status()),
 		CreatedAt:  run.CreatedAt(),
-		Pipeline:   cfg.Pipeline,
-		Visibility: cfg.Pipeline.Visibility,
+		Pipeline:   pipeline,
+		Visibility: pipeline.Visibility,
 	}); err != nil {
 		pr.Stop() // stop if database fails
 		log.Printf("failed to persist run %q: %v", run.ID(), err)
@@ -355,10 +355,7 @@ func (m *Manager) SubmitRepository(tracked store.TrackedRepository, commit strin
 
 	var runs []*Run
 	for _, p := range pipelines {
-		run, err := m.Submit(SubmitConfig{
-			OwnerID:  tracked.OwnerID,
-			Pipeline: p,
-		})
+		run, err := m.Submit(tracked.OwnerID, p)
 		if err != nil {
 			return runs, fmt.Errorf("submit pipeline: %w", err)
 		}
@@ -461,4 +458,7 @@ func (r *Run) SetFinishedAt(t *time.Time) {
 
 func (r *Run) Done() <-chan struct{} {
 	return r.done
+}
+func (r *Run) Wait() {
+	<-r.done
 }

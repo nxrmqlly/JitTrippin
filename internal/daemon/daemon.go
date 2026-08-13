@@ -1,22 +1,15 @@
 package daemon
 
 import (
-	"archive/tar"
 	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"io"
 	"log"
-	"path"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/nxrmqlly/jittrippin/helpers"
 	"github.com/nxrmqlly/jittrippin/internal/store"
 	"github.com/nxrmqlly/jittrippin/pkg/artifact"
-	"github.com/nxrmqlly/jittrippin/pkg/checkout"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 	"github.com/nxrmqlly/jittrippin/pkg/logs"
 )
@@ -58,6 +51,10 @@ func NewManager(ctx context.Context, cfg ManagerConfig) (*Manager, error) {
 		logsBroadcaster: cfg.LogsBroadcaster,
 		running:         make(map[string]*Run),
 	}, nil
+}
+
+func (m *Manager) Context() context.Context {
+	return m.ctx
 }
 
 // Add sets running[run.id] to run
@@ -268,6 +265,10 @@ func (m *Manager) List(cfg ListConfig) ([]*RunResult, error) {
 		})
 	}
 	return rs, nil
+}
+
+func (m *Manager) ListTrackedRepositoriesByProviderRepo(provider string, instance string, provideRepoID string) ([]*store.TrackedRepository, error) {
+	return m.store.GetTrackedRepositoriesByProviderRepo(m.ctx, provider, instance, provideRepoID)
 }
 
 type CancelConfig struct {

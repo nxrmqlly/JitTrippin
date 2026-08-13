@@ -9,6 +9,7 @@ import (
 	"github.com/nxrmqlly/jittrippin/internal/auth"
 	"github.com/nxrmqlly/jittrippin/internal/daemon"
 	"github.com/nxrmqlly/jittrippin/internal/daemon/httpx"
+	"github.com/nxrmqlly/jittrippin/internal/github"
 	"github.com/nxrmqlly/jittrippin/internal/store"
 )
 
@@ -18,15 +19,18 @@ type Router struct {
 	mux  *http.ServeMux
 	auth *auth.Service
 
+	gh *github.Integration
+
 	GlobalMws []Middleware
 }
 
 // New returns a pointer to a new http.Handler-like Router object.
-func New(mgr *daemon.Manager, auth *auth.Service) *Router {
+func New(mgr *daemon.Manager, auth *auth.Service, gh *github.Integration) *Router {
 	ro := &Router{
 		mgr:  mgr,
 		mux:  http.NewServeMux(),
 		auth: auth,
+		gh:   gh,
 	}
 	ro.routes()
 	return ro

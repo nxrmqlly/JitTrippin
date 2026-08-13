@@ -1,12 +1,14 @@
 package api
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -14,6 +16,7 @@ import (
 
 	"github.com/nxrmqlly/jittrippin/internal/daemon"
 	"github.com/nxrmqlly/jittrippin/internal/daemon/httpx"
+	"github.com/nxrmqlly/jittrippin/internal/store"
 )
 
 func VerifyWebhook(secret string, payload []byte, signature string) bool {
@@ -100,20 +103,31 @@ func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-
+		submitted := false
 		for _, t := range tracked {
 			if t.Branch != "" && t.Branch != branch {
 				continue
 			}
-			ro.mgr.QueueSubmitRepository(*t, event.After)
+			submitted = true
+			go ro.submitPush(ro.mgr.Context(), *t, event.After, event.Installation.ID)
 		}
+		if !submitted {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+		return
 
 	default:
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
+}
 
-	w.WriteHeader(http.StatusOK)
+func (ro *Router) submitPush(ctx context.Context, tracked store.TrackedRepository, sha string, installID int64) {
+	if _, err := ro.gh.SubmitPush(ctx, tracked, sha, installID); err != nil {
+		log.Printf("github: push submit failed: repo=%s sha=%s: %v", tracked.ID, sha, err)
+	}
 }
 
 type githubAddBody struct {

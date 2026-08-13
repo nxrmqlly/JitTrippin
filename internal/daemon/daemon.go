@@ -64,16 +64,11 @@ func (m *Manager) add(run *Run) {
 	m.mu.Unlock()
 }
 
-type SubmitConfig struct {
-	OwnerID  string
-	Pipeline *engine.Pipeline
-}
-
 func (m *Manager) GetUserIdentities(userID string) ([]store.UserIdentity, error) {
 	return m.store.GetUserIdentities(m.ctx, userID)
 }
 
-func (m *Manager) ListTrackedRepositoriesByProviderOwner(userID string) ([]*store.TrackedRepository, error) {
+func (m *Manager) ListTrackedRepositoriesByOwner(userID string) ([]*store.TrackedRepository, error) {
 	return m.store.ListTrackedRepositoriesByOwner(m.ctx, userID)
 }
 

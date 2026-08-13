@@ -75,9 +75,8 @@ func (c *Client) GetContentAtSHA(ctx context.Context, owner, name, path, ref str
 	fc, _, _, err := c.client.Repositories.GetContents(ctx, owner, name, path, &gh.RepositoryContentGetOptions{
 		Ref: ref,
 	})
-
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	if fc == nil {
 		return "", fmt.Errorf("content %q is a directory", path)
@@ -111,7 +110,7 @@ type Installation struct {
 }
 
 func (c *Client) ListUserInstallations(ctx context.Context) ([]Installation, error) {
-	ins, _, err := c.client.Apps.ListInstallations(ctx, nil)
+	ins, _, err := c.client.Apps.ListUserInstallations(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +128,7 @@ func (c *Client) ListUserInstallations(ctx context.Context) ([]Installation, err
 func LoadPipelinesAtSHA(ctx context.Context, c *Client, owner, name, sha string) ([]*engine.Pipeline, error) {
 	dir := defaultPipelineDir
 
-	if rc, err := c.GetContentAtSHA(ctx, owner, name, ".jtrc", sha); err != nil {
+	if rc, err := c.GetContentAtSHA(ctx, owner, name, ".jtrc", sha); err == nil {
 		if cfg, perr := config.Parse([]byte(rc)); perr == nil && cfg.Pipelines.Dir != "" {
 			dir = cfg.Pipelines.Dir
 		}

@@ -185,7 +185,7 @@ func (ro *Router) handleGithubList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	repos, err := ro.mgr.ListTrackedRepositoriesByProviderOwner(usr.ID)
+	repos, err := ro.mgr.ListTrackedRepositoriesByOwner(usr.ID)
 	if err != nil {
 		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
 		return

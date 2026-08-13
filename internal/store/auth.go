@@ -214,7 +214,7 @@ func (s *Store) FindOrCreateIdentity(ctx context.Context, provider, providerUser
 
 func (s *Store) GetUserIdentities(ctx context.Context, userID string) ([]UserIdentity, error) {
 	rows, err := s.pool.Query(ctx, `
-        SELECT 
+        SELECT
             id,
             user_id,
             provider,
@@ -228,7 +228,7 @@ func (s *Store) GetUserIdentities(ctx context.Context, userID string) ([]UserIde
             updated_at
         FROM user_identities
         WHERE user_id = $1
-        ORDER BY created_at   
+        ORDER BY created_at
     `, userID)
 	if err != nil {
 		return nil, err
@@ -255,10 +255,49 @@ func (s *Store) GetUserIdentities(ctx context.Context, userID string) ([]UserIde
 		); err != nil {
 			return nil, err
 		}
+
+		if len(i.AccessToken) > 0 {
+			pt, err := helpers.Decrypt(s.encKey, i.AccessToken)
+			if err != nil {
+				return nil, fmt.Errorf("cannot decrypt access token for identitiy %s: %w", i.ID, err)
+			}
+			i.AccessToken = pt
+		}
+		if len(i.RefreshToken) > 0 {
+			pt, err := helpers.Decrypt(s.encKey, i.RefreshToken)
+			if err != nil {
+				return nil, fmt.Errorf("cannot decrypt refresh token for identitiy %s: %w", i.ID, err)
+			}
+			i.RefreshToken = pt
+		}
 		identities = append(identities, i)
 	}
 
 	return identities, rows.Err()
+}
+
+func (s *Store) UpdateIdentityTokens(ctx context.Context, provider, providerUserID, accessToken, refreshToken string, expiresAt *time.Time) error {
+	encAccess, err := helpers.Encrypt(s.encKey, []byte(accessToken))
+	if err != nil {
+		return err
+	}
+	var encRefresh []byte
+	if refreshToken != "" {
+		encRefresh, err = helpers.Encrypt(s.encKey, []byte(refreshToken))
+		if err != nil {
+			return err
+		}
+	}
+	_, err = s.pool.Exec(ctx, `
+		UPDATE user_identities
+		SET access_token = $1, refresh_token = $2, token_expires_at = $3
+		WHERE provider = $4 AND provider_user_id = $5
+	`, encAccess, encRefresh, expiresAt, provider, providerUserID)
+
+	if err != nil {
+		return fmt.Errorf("cannot update identity tokens provider=%s user=%s: %w", provider, providerUserID, err)
+	}
+	return nil
 }
 
 // CreateSession creates a sessions database entry.
@@ -410,7 +449,7 @@ func (s *Store) ConsumeAuthCode(ctx context.Context, codeHash string) (*AuthCode
 		UPDATE auth_codes
 		SET used_at = now()
 		WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now()
-		RETURNING code_hash, user_id, expires_at, used_at 
+		RETURNING code_hash, user_id, expires_at, used_at
 	`, codeHash)
 
 	var ac AuthCode
@@ -420,7 +459,7 @@ func (s *Store) ConsumeAuthCode(ctx context.Context, codeHash string) (*AuthCode
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("cannot consume OAuth state %q, %w", codeHash, err)
 	}

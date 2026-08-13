@@ -102,6 +102,7 @@ func (m *Manager) Submit(cfg SubmitConfig) (*Run, error) {
 	m.add(run)
 
 	go func() {
+		defer close(run.done)
 		err := pr.Wait()
 
 		var errStr *string
@@ -315,7 +316,7 @@ func loadPipelines(r io.Reader) ([]*engine.Pipeline, error) {
 
 		// Only .jt/*.json
 		name := path.Clean(h.Name)
-		if !strings.HasPrefix(name, ".jt/") ||
+		if !strings.HasPrefix(name, "_example/") ||
 			!strings.HasSuffix(name, ".json") {
 			continue
 		}
@@ -331,31 +332,12 @@ func loadPipelines(r io.Reader) ([]*engine.Pipeline, error) {
 	return pipelines, nil
 }
 
-func (m *Manager) GetTrackedRepositoryByGithubID(githubID int64) (*TrackedRepository, error) {
-	repo, err := m.store.GetTrackedRepositoryByGithubID(m.ctx, githubID)
-	if err != nil {
-		return nil, err
-	}
-	return &TrackedRepository{
-		ID:             repo.ID,
-		OwnerID:        repo.OwnerID,
-		GithubRepoID:   repo.GithubRepoID,
-		GithubFullName: repo.GithubFullName,
-		Branch:         repo.Branch,
-	}, nil
+func (m *Manager) ListTrackedRepositoriesByProviderRepo(provider string, instance string, provideRepoID string) ([]*store.TrackedRepository, error) {
+	return m.store.GetTrackedRepositoriesByProviderRepo(m.ctx, provider, instance, provideRepoID)
 }
 
-type TrackedRepository struct {
-	ID             string
-	OwnerID        string
-	GithubRepoID   int64
-	GithubFullName string
-	Branch         string
-}
-
-func (m *Manager) SubmitRepository(tracked TrackedRepository, commit string) ([]*Run, error) {
-
-	url := "https://github.com/" + tracked.GithubFullName + ".git"
+func (m *Manager) SubmitRepository(tracked store.TrackedRepository, commit string) ([]*Run, error) {
+	url := "https://" + tracked.ProviderInstance + "/" + tracked.FullName + ".git"
 
 	checkout, err := m.exec.Checkouter.Checkout(m.ctx, checkout.Checkout{
 		URL: url,
@@ -387,6 +369,39 @@ func (m *Manager) SubmitRepository(tracked TrackedRepository, commit string) ([]
 	return runs, nil
 }
 
+func (m *Manager) QueueSubmitRepository(tracked store.TrackedRepository, commit string) {
+	go func() {
+		if _, err := m.SubmitRepository(tracked, commit); err != nil {
+			log.Printf("repo submit failed: repo=%s commit=%s: %s", tracked.ID, commit, err.Error())
+		}
+	}()
+}
+
+type TrackRepositoryConfig struct {
+	OwnerID              string
+	Provider             string
+	ProviderInstance     string
+	ProviderRepositoryID string
+	FullName             string
+	Branch               string
+}
+
+func (m *Manager) TrackRepository(cfg TrackRepositoryConfig) error {
+	err := m.store.CreateTrackedRepository(m.ctx, &store.TrackedRepository{
+		ID:                   helpers.MustUUIDV7(),
+		OwnerID:              cfg.OwnerID,
+		Provider:             cfg.Provider,
+		ProviderInstance:     cfg.ProviderInstance,
+		ProviderRepositoryID: cfg.ProviderRepositoryID,
+		FullName:             cfg.FullName,
+		Branch:               cfg.Branch,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 type Run struct {
 	mu sync.RWMutex
 
@@ -395,6 +410,8 @@ type Run struct {
 	status     Status
 	createdAt  time.Time
 	finishedAt *time.Time
+
+	done chan struct{}
 }
 
 func NewRun(pr *engine.PipelineRuntime) *Run {
@@ -402,6 +419,7 @@ func NewRun(pr *engine.PipelineRuntime) *Run {
 		runtime:   pr,
 		createdAt: time.Now(),
 		status:    StatusRunning,
+		done:      make(chan struct{}),
 	}
 }
 
@@ -439,4 +457,8 @@ func (r *Run) SetFinishedAt(t *time.Time) {
 	defer r.mu.Unlock()
 
 	r.finishedAt = t
+}
+
+func (r *Run) Done() <-chan struct{} {
+	return r.done
 }

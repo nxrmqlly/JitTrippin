@@ -96,16 +96,18 @@ func (gc *GitCheckouter) Checkout(ctx context.Context, c Checkout) (io.ReadClose
 	if err != nil {
 		return nil, fmt.Errorf("cannot create checkout dir: %w", err)
 	}
+	newURL, err := c.AuthURL()
+	if err != nil {
+		return nil, err
+	}
 
 	var stderr bytes.Buffer
 
 	args := []string{"clone", "--no-checkout", "--depth=1", "--single-branch"}
-	if c.Ref != "" {
-		args = append(args, "--branch", c.Ref)
-	}
-	args = append(args, c.URL, d)
+	args = append(args, newURL, d)
 
 	clone := exec.CommandContext(ctx, "git", args...)
+	clone.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 	clone.Stderr = &stderr
 
 	if err := clone.Run(); err != nil {
@@ -113,11 +115,12 @@ func (gc *GitCheckouter) Checkout(ctx context.Context, c Checkout) (io.ReadClose
 		return nil, fmt.Errorf("git clone failed: %s: %w", stderr.String(), err)
 	}
 
-	stderr.Reset()
 	if c.Ref != "" {
+		stderr.Reset()
 
 		fetch := exec.CommandContext(ctx, "git", "fetch", "--depth=1", "origin", c.Ref)
 		fetch.Dir = d
+		fetch.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 		fetch.Stderr = &stderr
 
 		if err := fetch.Run(); err != nil {
@@ -142,6 +145,9 @@ func (gc *GitCheckouter) Checkout(ctx context.Context, c Checkout) (io.ReadClose
 		}
 	} else {
 		// no ref specified, grab default
+
+		stderr.Reset()
+
 		checkout := exec.CommandContext(ctx, "git", "checkout", "HEAD")
 		checkout.Dir = d
 		checkout.Stderr = &stderr

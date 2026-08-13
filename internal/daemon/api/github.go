@@ -6,14 +6,14 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
+	"github.com/nxrmqlly/jittrippin/internal/daemon"
 	"github.com/nxrmqlly/jittrippin/internal/daemon/httpx"
-	"github.com/nxrmqlly/jittrippin/internal/store"
 )
 
 func VerifyWebhook(secret string, payload []byte, signature string) bool {
@@ -36,11 +36,12 @@ func VerifyWebhook(secret string, payload []byte, signature string) bool {
 }
 
 type PushEvent struct {
-	Ref        string     `json:"ref"`
-	Before     string     `json:"before"`
-	After      string     `json:"after"`
-	Repository Repository `json:"repository"`
-	Sender     User       `json:"sender"`
+	Ref          string       `json:"ref"`
+	Before       string       `json:"before"`
+	After        string       `json:"after"`
+	Repository   Repository   `json:"repository"`
+	Sender       User         `json:"sender"`
+	Installation Installation `json:"installation"`
 }
 
 type Repository struct {
@@ -52,6 +53,10 @@ type Repository struct {
 
 type User struct {
 	Login string `json:"login"`
+}
+
+type Installation struct {
+	ID string `json:"id"`
 }
 
 func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
@@ -81,22 +86,27 @@ func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		tracked, err := ro.mgr.GetTrackedRepositoryByGithubID(event.Repository.ID)
+		branch := strings.TrimPrefix(event.Ref, "refs/heads/")
+		tracked, err := ro.mgr.ListTrackedRepositoriesByProviderRepo(
+			"github",
+			"github.com",
+			strconv.FormatInt(event.Repository.ID, 10),
+		)
 		if err != nil {
-			if errors.Is(err, store.ErrNotFound) {
-				w.WriteHeader(http.StatusNoContent)
-				return
-			}
 			httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
 			return
 		}
-
-		branch := strings.TrimPrefix(event.Ref, "refs/heads/")
-		if tracked.Branch != branch {
+		if len(tracked) == 0 {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		_, err = ro.mgr.SubmitRepository(*tracked, event.After)
+
+		for _, t := range tracked {
+			if t.Branch != "" && t.Branch != branch {
+				continue
+			}
+			ro.mgr.QueueSubmitRepository(*t, event.After)
+		}
 
 	default:
 		w.WriteHeader(http.StatusNoContent)
@@ -105,3 +115,26 @@ func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 }
+
+type githubAddBody struct {
+	RepoFullName string `json:"repo_fullname"`
+	Branch       string `json:"branch"`
+}
+
+func (ro *Router) handleGithubAdd(w http.ResponseWriter, r *http.Request) {
+	usr, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+
+	ro.mgr.TrackRepository(daemon.TrackRepositoryConfig{
+		OwnerID:              usr.ID,
+		Provider:             "",
+		ProviderInstance:     "github.com",
+		ProviderRepositoryID: "",
+		FullName:             "",
+		Branch:               "",
+	})
+}
+func (ro *Router) handleGithubList(w http.ResponseWriter, r *http.Request)
+func (ro *Router) handleGithubRemove(w http.ResponseWriter, r *http.Request)

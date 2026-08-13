@@ -37,24 +37,27 @@ func (ro *Router) routes() {
 
 	ro.Handle("GET /api/v1/health", ro.handleHealth)
 
-	ro.Handle("GET  /api/v1/runs/{id}", ro.handleRunGet, ro.Authentication)
-	ro.Handle("GET  /api/v1/runs", ro.handleRunList, ro.Authentication)
-	ro.Handle("POST /api/v1/runs", ro.handleRunSubmit, ro.Authentication)
+	ro.Handle("GET    /api/v1/runs/{id}", ro.handleRunGet, ro.Authentication)
+	ro.Handle("GET    /api/v1/runs", ro.handleRunList, ro.Authentication)
+	ro.Handle("POST   /api/v1/runs", ro.handleRunSubmit, ro.Authentication)
 
-	ro.Handle("GET  /api/v1/runs/{id}/artifacts/", ro.handleArtifactsList, ro.Authentication)
-	ro.Handle("GET  /api/v1/runs/{id}/artifacts/{job}/{artifact}", ro.handleArtifactsServe, ro.Authentication)
+	ro.Handle("GET    /api/v1/runs/{id}/artifacts/", ro.handleArtifactsList, ro.Authentication)
+	ro.Handle("GET    /api/v1/runs/{id}/artifacts/{job}/{artifact}", ro.handleArtifactsServe, ro.Authentication)
 
-	ro.Handle("GET  /api/v1/runs/{id}/logs/{job}/", ro.handleLogsGet, ro.Authentication)
-	ro.Handle("GET  /api/v1/runs/{id}/logs/{job}/live", ro.handleLogsLive, ro.Authentication)
+	ro.Handle("GET    /api/v1/runs/{id}/logs/{job}/", ro.handleLogsGet, ro.Authentication)
+	ro.Handle("GET    /api/v1/runs/{id}/logs/{job}/live", ro.handleLogsLive, ro.Authentication)
 
-	ro.Handle("POST /api/v1/runs/{id}/cancel", ro.handleRunCancel, ro.Authentication)
+	ro.Handle("POST   /api/v1/runs/{id}/cancel", ro.handleRunCancel, ro.Authentication)
 
-	ro.Handle("POST /api/v1/auth/begin", ro.handleAuthBegin)
-	ro.Handle("GET  /api/v1/auth/{provider}/callback", ro.handleAuthCallback)
-	ro.Handle("POST /api/v1/auth/exchange", ro.handleAuthExchange)
-	ro.Handle("POST /api/v1/auth/logout", ro.handleAuthLogout)
+	ro.Handle("POST   /api/v1/auth/begin", ro.handleAuthBegin)
+	ro.Handle("GET    /api/v1/auth/{provider}/callback", ro.handleAuthCallback)
+	ro.Handle("POST   /api/v1/auth/exchange", ro.handleAuthExchange)
+	ro.Handle("POST   /api/v1/auth/logout", ro.handleAuthLogout)
 
-	ro.Handle("POST /api/v1/integrations/github/webhook", ro.handleGithubWebhook)
+	ro.Handle("POST   /api/v1/integrations/github/webhook", ro.handleGithubWebhook)
+	ro.Handle("POST   /api/v1/integrations/github", ro.handleGithubAdd, ro.Authentication)
+	ro.Handle("GET    /api/v1/integrations/github/list", ro.handleGithubList, ro.Authentication)
+	ro.Handle("DELETE /api/v1/integrations/github", ro.handleGithubRemove, ro.Authentication)
 
 }
 

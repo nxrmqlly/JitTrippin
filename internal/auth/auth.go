@@ -14,11 +14,11 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var ErrProviderNotFound = errors.New("provider not found")
-
-var ErrSessionRevoked = errors.New("session already revoked")
-var ErrSessionExpired = errors.New("session has expired")
-
+var (
+	ErrProviderNotFound = errors.New("provider not found")
+	ErrSessionRevoked   = errors.New("session already revoked")
+	ErrSessionExpired   = errors.New("session has expired")
+)
 
 const (
 	SessionLifetime    = 30 * 24 * time.Hour
@@ -30,9 +30,10 @@ type Identity struct {
 	Provider   string
 	ProviderID string
 
-	Name      string
-	Email     string
-	AvatarURL string
+	Name       string
+	Email      string
+	AvatarURL  string
+	OAuthToken *oauth2.Token
 }
 
 type Provider interface {
@@ -144,6 +145,19 @@ func (s *Service) Callback(ctx context.Context, opts CallbackOptions) (CallbackR
 		identity.Email,
 	)
 	if err != nil {
+		return CallbackResult{}, err
+	}
+
+	var accessToken, refreshToken string
+	var expiry *time.Time
+	if identity.OAuthToken != nil {
+		accessToken = identity.OAuthToken.AccessToken
+		refreshToken = identity.OAuthToken.RefreshToken
+		if !identity.OAuthToken.Expiry.IsZero() {
+			expiry = &identity.OAuthToken.Expiry
+		}
+	}
+	if err := s.store.UpdateIdentityTokens(ctx, pro.Name(), identity.ProviderID, accessToken, refreshToken, expiry); err != nil {
 		return CallbackResult{}, err
 	}
 

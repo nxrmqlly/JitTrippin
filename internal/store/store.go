@@ -13,11 +13,12 @@ import (
 )
 
 type Store struct {
-	pool *pgxpool.Pool
+	pool   *pgxpool.Pool
+	encKey []byte
 }
 
-func New(pool *pgxpool.Pool) *Store {
-	return &Store{pool: pool}
+func New(pool *pgxpool.Pool, encKey []byte) *Store {
+	return &Store{pool: pool, encKey: encKey}
 }
 
 type RunRecord struct {

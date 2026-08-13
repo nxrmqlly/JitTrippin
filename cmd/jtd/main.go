@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"log"
 	"net/http"
 	"os"
@@ -44,7 +45,17 @@ func main() {
 		log.Fatal(err)
 	}
 
-	st := store.New(pool)
+	encKey := make([]byte, 32)
+	hexKey := os.Getenv("JTD_SIGNING_SECRET")
+	if hexKey == "" {
+		log.Fatalf("JTD_SIGNING_SECRET must be set. (32 byte hex encoded key)")
+	}
+	keyb, err := hex.DecodeString(hexKey)
+	if err != nil {
+		log.Fatalf("JTD_SIGNING_SECRET in wrong format, must be 64 hex chars")
+	}
+	encKey = keyb
+	st := store.New(pool, encKey)
 	as := &artifact.LocalStore{
 		Root: ".jt-artifacts",
 	}

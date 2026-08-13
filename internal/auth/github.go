@@ -83,7 +83,7 @@ func (g *Github) Exchange(ctx context.Context, code string) (*Identity, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	client := g.cfg.Client(ctx, tok)
 	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.github.com/user", nil)
 	addGithubHeaders(req)
@@ -152,5 +152,7 @@ func (g *Github) Exchange(ctx context.Context, code string) (*Identity, error) {
 		Name:      ur.Name,
 		Email:     ur.Email,
 		AvatarURL: ur.AvatarURL,
+
+		OAuthToken: tok,
 	}, nil
 }

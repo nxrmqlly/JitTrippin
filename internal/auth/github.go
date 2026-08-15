@@ -156,3 +156,7 @@ func (g *Github) Exchange(ctx context.Context, code string) (*Identity, error) {
 		OAuthToken: tok,
 	}, nil
 }
+
+func (g *Github) Refresh(ctx context.Context, tok *oauth2.Token) (*oauth2.Token, error) {
+	return g.cfg.TokenSource(ctx, tok).Token()
+}

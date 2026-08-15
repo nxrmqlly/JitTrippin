@@ -21,17 +21,11 @@ import (
 )
 
 func (ro *Router) userGithubToken(ctx context.Context, userID string) (string, error) {
-	identities, err := ro.mgr.GetUserIdentities(userID)
+	tok, err := ro.auth.Token(ctx, userID, "github")
 	if err != nil {
 		return "", err
 	}
-	for _, id := range identities {
-		act := string(id.AccessToken)
-		if id.Provider == "github" && act != "" {
-			return act, nil
-		}
-	}
-	return "", errors.New("github: not linked")
+	return tok.AccessToken, nil
 }
 
 func VerifyWebhook(secret string, payload []byte, signature string) bool {

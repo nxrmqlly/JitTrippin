@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/nxrmqlly/jittrippin/helpers"
@@ -42,6 +43,8 @@ type Provider interface {
 	AuthURL(state string, opts ...oauth2.AuthCodeOption) string
 
 	Exchange(ctx context.Context, code string) (*Identity, error)
+
+	Refresh(ctx context.Context, tok *oauth2.Token) (*oauth2.Token, error)
 }
 
 func randString(n int) string {
@@ -241,4 +244,55 @@ func (s *Service) Authenticate(ctx context.Context, sessionToken string) (*store
 
 func (s *Service) Logout(ctx context.Context, sessionToken string) error {
 	return s.store.RevokeSession(ctx, hashToken(sessionToken))
+}
+
+func (s *Service) Token(ctx context.Context, userID, provider string) (*oauth2.Token, error) {
+	pro, ok := s.providers[provider]
+	if !ok {
+		return nil, ErrProviderNotFound
+	}
+	identities, err := s.store.GetUserIdentities(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	var idn *store.UserIdentity
+	for i := range identities {
+		if identities[i].Provider == provider {
+			idn = &identities[i]
+			break
+		}
+	}
+	if idn == nil {
+		return nil, fmt.Errorf("no %s identity for user %s", provider, userID)
+	}
+	tok := &oauth2.Token{
+		AccessToken: string(idn.AccessToken),
+		TokenType:   "Bearer",
+	}
+	if string(idn.RefreshToken) != "" {
+		tok.RefreshToken = string(idn.RefreshToken)
+	}
+	if idn.TokenExpiresAt != nil {
+		tok.Expiry = *idn.TokenExpiresAt
+	}
+
+	if idn.TokenExpiresAt == nil || time.Until(tok.Expiry) > 5*time.Minute {
+		return tok, nil
+	}
+
+	nt, err := pro.Refresh(ctx, tok)
+	if err != nil {
+		return nil, err
+	}
+
+	var expiry *time.Time
+	if !nt.Expiry.IsZero() {
+		expiry = &nt.Expiry
+	}
+	if err := s.store.UpdateIdentityTokens(
+		ctx, provider, idn.ProviderUserID, nt.AccessToken, nt.RefreshToken, expiry,
+	); err != nil {
+		return nil, err
+	}
+	return nt, err
 }

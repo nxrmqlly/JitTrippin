@@ -8,9 +8,9 @@ cat > /tmp/jtd-push.json <<'EOF'
 {
   "ref": "refs/heads/master",
   "before": "0000000000000000000000000000000000000000",
-  "after": "c17b1ae6721c87fc3462bfe709e670a85d5a8ff9",
+  "after": "2d5148862fc255baa863bd3e88f6ffb77ef499cb",
   "repository": {
-    "id": 123456789,
+    "id": 1301709047,
     "name": "jittrippin",
     "full_name": "nxrmqlly/jittrippin",
     "default_branch": "master"

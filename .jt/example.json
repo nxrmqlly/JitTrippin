@@ -1,0 +1,184 @@
+{
+    "name": "Go API Server CI/CD",
+    "description": "Full pipeline: lint + build -> test + security scan -> package -> deploy with artifact passing",
+    "checkout": {
+        "url": "https://github.com/nxrmqlly/JitTrippin",
+        "ref": "master"
+    },
+    "jobs": [
+        {
+            "name": "lint",
+            "image": "alpine:latest",
+            "steps": [
+                {
+                    "name": "format-check",
+                    "cmd": "echo '[lint] checking formatting... all files formatted'"
+                },
+                {
+                    "name": "vet",
+                    "cmd": "echo '[lint] go vet... passed'"
+                },
+                {
+                    "name": "write-report",
+                    "cmd": "mkdir -p reports && echo 'Lint Report' > reports/lint.txt && echo '---------' >> reports/lint.txt && echo 'format: pass' >> reports/lint.txt && echo 'vet:     pass' >> reports/lint.txt && echo 'issues:  0' >> reports/lint.txt"
+                }
+            ],
+            "artifacts": [
+                {
+                    "name": "lint-report",
+                    "path": "reports/lint.txt"
+                }
+            ]
+        },
+        {
+            "name": "build",
+            "image": "alpine:latest",
+            "steps": [
+                {
+                    "name": "compile",
+                    "cmd": "mkdir -p bin/dist && printf '#!/bin/sh\\necho \"server v1.0.0 running on port 8080\"\\n' > bin/dist/server-linux-amd64 && chmod +x bin/dist/server-linux-amd64 && echo '[build] compiled bin/dist/server-linux-amd64'"
+                },
+                {
+                    "name": "verify-binary",
+                    "cmd": "bin/dist/server-linux-amd64"
+                }
+            ],
+            "artifacts": [
+                {
+                    "name": "server-binary",
+                    "path": "bin/dist/server-linux-amd64"
+                }
+            ]
+        },
+        {
+            "name": "unit-test",
+            "image": "alpine:latest",
+            "depends_on": [
+                {
+                    "job": "build",
+                    "requires": ["server-binary"]
+                }
+            ],
+            "steps": [
+                {
+                    "name": "restore-binary",
+                    "cmd": "echo '[unit-test] restored binary:' && bin/dist/server-linux-amd64"
+                },
+                {
+                    "name": "run-tests",
+                    "cmd": "mkdir -p reports && echo '=== Test Results ===' > reports/test-results.txt && echo 'PASS: TestHello' >> reports/test-results.txt && echo 'PASS: TestConfig' >> reports/test-results.txt && echo 'PASS: TestRoutes' >> reports/test-results.txt && echo 'PASS: TestMiddleware' >> reports/test-results.txt && echo '---' >> reports/test-results.txt && echo '4 passed, 0 failed' >> reports/test-results.txt"
+                },
+                {
+                    "name": "coverage",
+                    "cmd": "echo 'coverage: 87.3%' > reports/coverage.txt && echo '[unit-test] wrote test-results.txt and coverage.txt'"
+                }
+            ],
+            "artifacts": [
+                {
+                    "name": "test-report",
+                    "path": "reports/test-results.txt"
+                },
+                {
+                    "name": "coverage-report",
+                    "path": "reports/coverage.txt"
+                }
+            ]
+        },
+        {
+            "name": "security-scan",
+            "image": "alpine:latest",
+            "depends_on": [
+                {
+                    "job": "build",
+                    "requires": ["server-binary"]
+                }
+            ],
+            "steps": [
+                {
+                    "name": "scan-binary",
+                    "cmd": "echo '[security] scanning bin/dist/server-linux-amd64...'"
+                },
+                {
+                    "name": "write-report",
+                    "cmd": "mkdir -p reports && echo 'Security Scan Report' > reports/security.txt && echo '---------------------' >> reports/security.txt && echo 'vulnerabilities: 0' >> reports/security.txt && echo 'severity: clean' >> reports/security.txt && echo '[security] wrote security.txt'"
+                }
+            ],
+            "artifacts": [
+                {
+                    "name": "security-report",
+                    "path": "reports/security.txt"
+                }
+            ]
+        },
+        {
+            "name": "package",
+            "image": "alpine:latest",
+            "depends_on": [
+                {
+                    "job": "build",
+                    "requires": ["server-binary"]
+                },
+                {
+                    "job": "lint",
+                    "requires": ["lint-report"]
+                },
+                {
+                    "job": "unit-test",
+                    "requires": ["test-report", "coverage-report"]
+                },
+                {
+                    "job": "security-scan",
+                    "requires": ["security-report"]
+                }
+            ],
+            "steps": [
+                {
+                    "name": "verify-reports",
+                    "cmd": "echo '=== Verifying all upstream artifacts ===' && cat reports/lint.txt && echo '' && cat reports/test-results.txt && echo '' && cat reports/coverage.txt && echo '' && cat reports/security.txt"
+                },
+                {
+                    "name": "create-release",
+                    "cmd": "mkdir -p release && tar -cf release/release.tar bin/dist/server-linux-amd64 reports/ && echo '[package] created release/release.tar'"
+                },
+                {
+                    "name": "checksum",
+                    "cmd": "sha256sum release/release.tar > release/checksum.txt && echo '[package] wrote release/checksum.txt' && cat release/checksum.txt"
+                }
+            ],
+            "artifacts": [
+                {
+                    "name": "release-bundle",
+                    "path": "release/release.tar"
+                },
+                {
+                    "name": "checksum",
+                    "path": "release/checksum.txt"
+                }
+            ]
+        },
+        {
+            "name": "deploy",
+            "image": "alpine:latest",
+            "depends_on": [
+                {
+                    "job": "package",
+                    "requires": ["release-bundle", "checksum"]
+                }
+            ],
+            "steps": [
+                {
+                    "name": "verify-checksum",
+                    "cmd": "echo '[deploy] verifying checksum...' && sha256sum release/release.tar && cat release/checksum.txt && echo '[deploy] checksum OK'"
+                },
+                {
+                    "name": "extract",
+                    "cmd": "mkdir -p /tmp/deploy && tar -xf release/release.tar -C /tmp/deploy && echo '[deploy] extracted release:' && ls -la /tmp/deploy/bin/dist/ && ls -la /tmp/deploy/reports/"
+                },
+                {
+                    "name": "start-server",
+                    "cmd": "/tmp/deploy/bin/dist/server-linux-amd64 && echo '[deploy] deployment complete!'"
+                }
+            ]
+        }
+    ]
+}

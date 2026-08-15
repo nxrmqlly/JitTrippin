@@ -64,16 +64,12 @@ func (m *Manager) add(run *Run) {
 	m.mu.Unlock()
 }
 
-func (m *Manager) GetUserIdentities(userID string) ([]store.UserIdentity, error) {
-	return m.store.GetUserIdentities(m.ctx, userID)
-}
-
 func (m *Manager) ListTrackedRepositoriesByOwner(userID string) ([]*store.TrackedRepository, error) {
 	return m.store.ListTrackedRepositoriesByOwner(m.ctx, userID)
 }
 
 func (m *Manager) GetTrackedRepositoryByID(id string) (*store.TrackedRepository, error) {
-	return m.store.GetTrackedRepositoryByID(m.ctx, id)
+	return m.store.GetTrackedRepositoryByID(m.ctx, id)	
 }
 
 func (m *Manager) DeleteTrackedRepository(id string) error {

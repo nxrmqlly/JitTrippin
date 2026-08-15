@@ -13,6 +13,7 @@ require (
 	github.com/moby/moby/client v0.5.0
 	github.com/pressly/goose/v3 v3.27.3
 	github.com/urfave/cli/v3 v3.10.1
+	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/oauth2 v0.36.0
 )
 
@@ -39,7 +40,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/sethvargo/go-retry v0.4.0 // indirect
-	github.com/zalando/go-keyring v0.2.8 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
 	go.opentelemetry.io/otel v1.44.0 // indirect

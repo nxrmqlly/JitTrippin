@@ -21,6 +21,7 @@ func New() *cli.Command {
 			CmdRepos(),
 			CmdPing(),
 			CmdDaemon(),
+			CmdIntegrations(),
 		},
 	}
 }

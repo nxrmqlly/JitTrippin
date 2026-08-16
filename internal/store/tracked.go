@@ -134,3 +134,8 @@ func (s *Store) DeleteTrackedRepository(ctx context.Context, id string) error {
 
 	return err
 }
+
+func (s *Store) DeleteTrackedRepositoriesByProvider(ctx context.Context, userID, provider string) error {
+	_, err := s.pool.Exec(ctx, `DELETE FROM tracked_repositories WHERE owner_id=$1 AND provider=$2`, userID, provider)
+	return err
+}

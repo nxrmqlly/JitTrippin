@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	gh "github.com/google/go-github/v90/github"
+	"github.com/google/uuid"
 	"github.com/nxrmqlly/jittrippin/internal/daemon"
 	"github.com/nxrmqlly/jittrippin/internal/store"
 	"golang.org/x/oauth2"
@@ -45,6 +46,10 @@ func New(cfg Config, st *store.Store, mgr *daemon.Manager) (*Integration, error)
 		pub:   cfg.PublicURL,
 		slug:  cfg.AppSlug,
 	}, nil
+}
+
+func (i *Integration) Name() string {
+	return "github"
 }
 
 func (i *Integration) installForOwner(ctx context.Context, cu *Client, owner string) (int64, error) {
@@ -255,4 +260,45 @@ func (i *Integration) ListInstallableRepos(ctx context.Context, userToken string
 		out = append(out, repos...)
 	}
 	return out, nil
+}
+
+func (i *Integration) LinkUserIntegration(ctx context.Context, userID string, userToken string) ([]Installation, error) {
+	cu, err := forUser(userToken)
+	if err != nil {
+		return nil, err
+	}
+	installs, err := cu.ListUserInstallations(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ui := &store.UserIntegration{
+		ID:               uuid.NewString(), // or helpers like other store calls
+		UserID:           userID,
+		Provider:         "github",
+		ProviderInstance: "github.com",
+		Status:           "active",
+	}
+	for _, inst := range installs {
+		ui.Installations = append(ui.Installations, store.IntegrationInstallation{
+			InstallationID: strconv.FormatInt(inst.ID, 10),
+			AccountLogin:   inst.AccountLogin,
+			AccountType:    inst.AccountType,
+		})
+	}
+	if err := i.st.UpsertIntegration(ctx, ui); err != nil {
+		return nil, err
+	}
+	return installs, nil
+}
+
+func (i *Integration) ListUserIntegrations(ctx context.Context, userID string) ([]store.UserIntegration, error) {
+	return i.st.ListUserIntegrations(ctx, userID)
+}
+
+func (i *Integration) UnlinkUserIntegration(ctx context.Context, userID, provider string) error {
+	if err := i.st.DeleteIntegration(ctx, userID, provider); err != nil {
+		return err
+	}
+	// cascade delete repos
+	return i.st.DeleteTrackedRepositoriesByProvider(ctx, userID, provider)
 }

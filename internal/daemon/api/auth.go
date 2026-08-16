@@ -159,14 +159,16 @@ func (ro *Router) handleAuthMe(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, resp)
 }
 
-func (ro *Router) handleIntegrationRemove(w http.ResponseWriter, r *http.Request) {
+func (ro *Router) handleAuthUnlink(w http.ResponseWriter, r *http.Request) {
 	usr, ok := currentUser(w, r)
 	if !ok {
 		return
 	}
+
 	if err := ro.auth.Unlink(r.Context(), usr.ID, r.PathValue("provider")); err != nil {
 		httpx.ErrorJSON(w, http.StatusNotFound, err.Error())
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+

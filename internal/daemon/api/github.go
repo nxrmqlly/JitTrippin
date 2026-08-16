@@ -188,23 +188,13 @@ func (ro *Router) handleGithubList(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, repos)
 }
 
-type githubRemoveBody struct {
-	ID string `json:"id"`
-}
-
 func (ro *Router) handleGithubRemove(w http.ResponseWriter, r *http.Request) {
 	usr, ok := currentUser(w, r)
 	if !ok {
 		return
 	}
 
-	var body githubRemoveBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpx.ErrorJSON(w, http.StatusBadRequest, "invalid body")
-		return
-	}
-
-	repo, err := ro.mgr.GetTrackedRepositoryByID(body.ID)
+	repo, err := ro.mgr.GetTrackedRepositoryByID(r.PathValue("id"))
 	if err != nil {
 		if errors.Is(err, store.ErrRepoNotFound) {
 			httpx.ErrorJSON(w, http.StatusNotFound, "not found")
@@ -217,11 +207,10 @@ func (ro *Router) handleGithubRemove(w http.ResponseWriter, r *http.Request) {
 		httpx.ErrorJSON(w, http.StatusNotFound, "not found")
 		return
 	}
-	if err := ro.mgr.DeleteTrackedRepository(body.ID); err != nil {
+	if err := ro.mgr.DeleteTrackedRepository(repo.ID); err != nil {
 		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
-
 	w.WriteHeader(http.StatusNoContent)
 }
 

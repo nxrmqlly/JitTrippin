@@ -117,7 +117,7 @@ func (c *daemonClient) ConnectGithub(fullName, branch string) error {
 		RepoFullName string `json:"repo_fullname"`
 		Branch       string `json:"branch"`
 	}
-	return c.do(http.MethodPost, "/api/v1/integrations/github", cgBody{
+	return c.do(http.MethodPost, "/api/v1/integrations/github/repos", cgBody{
 		RepoFullName: fullName,
 		Branch:       branch,
 	}, nil)
@@ -165,7 +165,7 @@ func (c *daemonClient) Me() (*meResult, error) {
 }
 
 func (c *daemonClient) RemoveIntegration(provider string) error {
-	return c.do(http.MethodDelete, "/api/v1/auth/"+provider, nil, nil)
+	return c.do(http.MethodDelete, "/api/v1/integrations/"+provider, nil, nil)
 }
 
 type installAcct struct {
@@ -213,9 +213,7 @@ func (c *daemonClient) TrackedRepos() ([]trackedRepo, error) {
 }
 
 func (c *daemonClient) RemoveGithub(id string) error {
-	return c.do(http.MethodDelete, "/api/v1/integrations/github", struct {
-		ID string `json:"id"`
-	}{ID: id}, nil)
+	return c.do(http.MethodDelete, "/api/v1/integrations/github/repos/"+id, nil, nil)
 }
 
 type installableRepo struct {
@@ -232,4 +230,47 @@ func (c *daemonClient) InstallableRepos() ([]installableRepo, error) {
 		return nil, err
 	}
 	return out.Repos, nil
+}
+
+func (c *daemonClient) IntegrationProviders() ([]string, error) {
+	var out struct {
+		Integrations []string `json:"integrations"`
+	}
+	if err := c.do(http.MethodGet, "/api/v1/integrations/providers", nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Integrations, nil
+}
+
+type userInstallation struct {
+	InstallationID string `json:"installation_id"`
+	AccountLogin   string `json:"account_login"`
+	AccountType    string `json:"account_type"`
+}
+
+type userIntegration struct {
+	Provider         string             `json:"provider"`
+	ProviderInstance string             `json:"provider_instance"`
+	Status           string             `json:"status"`
+	Installations    []userInstallation `json:"installations"`
+}
+
+func (c *daemonClient) MyIntegrations() ([]userIntegration, error) {
+	var out struct {
+		Integrations []userIntegration `json:"integrations"`
+	}
+	if err := c.do(http.MethodGet, "/api/v1/integrations", nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Integrations, nil
+}
+
+func (c *daemonClient) LinkIntegration(provider string) ([]installAcct, error) {
+	var out struct {
+		Accounts []installAcct `json:"accounts"`
+	}
+	if err := c.do(http.MethodPost, "/api/v1/integrations/"+provider, nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Accounts, nil
 }

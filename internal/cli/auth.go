@@ -87,7 +87,7 @@ func ensureDaemonURL(c *cli.Command) (string, error) {
 	return cfg.Daemon, nil
 }
 
-func checkHealth(ctx context.Context, c *daemonClient) error {
+func checkHealth(_ context.Context, c *daemonClient) error {
 	if err := c.do(http.MethodGet, "/api/v1/health", nil, nil); err != nil {
 		return fmt.Errorf("daemon not reachable: %w", err)
 	}
@@ -160,17 +160,12 @@ func handleAuthLogin(ctx context.Context, c *cli.Command) error {
 		if len(providers) == 0 {
 			return errors.New("daemon advertises no OAuth Providers")
 		}
-		// if len(providers) > 1 {
-		if len(providers) > 0 {
-			if err := huh.NewSelect[string]().Title("OAuth provider").
-				Options(huh.NewOptions(providers...)...).
-				Value(&provider).Run(); err != nil {
-				return err
-			}
+		if err := huh.NewSelect[string]().Title("OAuth provider").
+			Options(huh.NewOptions(providers...)...).
+			Value(&provider).Run(); err != nil {
+			return err
 		}
-		// } else {
-		// 	provider = providers[0]
-		// }
+
 	}
 	token, err := oauthDance(ctx, client, provider, c.Bool("no-open"))
 	if err != nil {
@@ -261,11 +256,29 @@ func handleAuthStatus(ctx context.Context, c *cli.Command) error {
 	}
 	fmt.Printf("User:      %s (%s)\n", me.User.Name, me.User.ID)
 	if len(me.Identities) > 0 {
-		fmt.Println("Integrations:")
+		fmt.Println("Linked accounts:")
 		for _, id := range me.Identities {
 			fmt.Printf("  - %s", id.Provider)
 			if id.Login != "" {
 				fmt.Printf(" (%s)", id.Login)
+			}
+			fmt.Println()
+		}
+	}
+	integrations, err := client.MyIntegrations()
+	if err != nil {
+		return err
+	}
+	if len(integrations) > 0 {
+		fmt.Println("Integrations:")
+		for _, in := range integrations {
+			fmt.Printf("  - %s", in.Provider)
+			if len(in.Installations) > 0 {
+				logins := make([]string, 0, len(in.Installations))
+				for _, a := range in.Installations {
+					logins = append(logins, a.AccountLogin)
+				}
+				fmt.Printf(" (installed on: %s)", strings.Join(logins, ", "))
 			}
 			fmt.Println()
 		}

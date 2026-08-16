@@ -48,6 +48,22 @@ func VerifyWebhook(secret string, payload []byte, signature string) bool {
 		subtle.ConstantTimeCompare(sig, expected) == 1
 }
 
+type Release struct {
+	ID              int64  `json:"id"`
+	TagName         string `json:"tag_name"`
+	TargetCommitish string `json:"target_commitish"`
+	Draft           bool   `json:"draft"`
+	Prerelease      bool   `json:"prerelease"`
+}
+
+type ReleaseEvent struct {
+	Action       string       `json:"action"`
+	Release      Release      `json:"release"`
+	Repository   Repository   `json:"repository"`
+	Sender       GHUser       `json:"sender"`
+	Installation Installation `json:"installation"`
+}
+
 type PushEvent struct {
 	Ref          string       `json:"ref"`
 	Before       string       `json:"before"`
@@ -119,7 +135,7 @@ func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			submitted = true
-			go ro.submitPush(ro.mgr.Context(), *t, event.After, event.Installation.ID)
+			go ro.submitPush(ro.mgr.Context(), *t, event.Ref, event.After, event.Installation.ID)
 		}
 		if !submitted {
 			w.WriteHeader(http.StatusNoContent)
@@ -127,16 +143,52 @@ func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusAccepted)
 		return
+	case "release":
+		var event ReleaseEvent
+		if err := json.Unmarshal(body, &event); err != nil {
+			httpx.ErrorJSON(w, http.StatusInternalServerError, "error decoding json")
+			return
+		}
+		if event.Release.Draft {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 
+		tracked, err := ro.mgr.ListTrackedRepositoriesByProviderRepo(
+			"github", "github.com",
+			strconv.FormatInt(event.Repository.ID, 10),
+		)
+		if err != nil {
+			httpx.InternalServerError(w, err)
+			return
+		}
+		if len(tracked) == 0 {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		for _, t := range tracked {
+			go ro.submitRelease(ro.mgr.Context(), *t, event.Action,
+				event.Release.TagName, event.Release.ID, event.Installation.ID)
+		}
+		w.WriteHeader(http.StatusAccepted)
+		return
 	default:
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 }
 
-func (ro *Router) submitPush(ctx context.Context, tracked store.TrackedRepository, sha string, installID int64) {
-	if _, err := ro.gh.SubmitPush(ctx, tracked, sha, installID); err != nil {
-		log.Printf("github: push submit failed: repo=%s sha=%s: %v", tracked.ID, sha, err)
+func (ro *Router) submitPush(ctx context.Context, tracked store.TrackedRepository, ref, sha string, installID int64) {
+	if _, err := ro.gh.SubmitPush(ctx, tracked, ref, sha, installID); err != nil {
+		log.Printf("github: push submit failed: repo=%s ref=%s: %v", tracked.ID, ref, err)
+	}
+}
+
+func (ro *Router) submitRelease(ctx context.Context, tracked store.TrackedRepository, action, tag string, releaseID, installID int64) {
+	if _, err := ro.gh.SubmitRelease(ctx, tracked, installID, github.ReleaseInfo{
+		Action: action, Tag: tag, ReleaseID: releaseID,
+	}); err != nil {
+		log.Printf("github: release submit failed: repo=%s tag=%s: %v", tracked.ID, tag, err)
 	}
 }
 

@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"mime"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -221,4 +224,53 @@ func (c *Client) ListInstallationRepos(ctx context.Context) ([]Repository, error
 		opts.Page = resp.NextPage
 	}
 	return out, nil
+}
+
+func (c *Client) ResolveTagSHA(ctx context.Context, owner, name, tag string) (string, error) {
+	ref, _, err := c.client.Git.GetRef(ctx, owner, name, "tags/"+tag)
+	if err != nil {
+		return "", err
+	}
+	sha := ref.GetObject().GetSHA()
+	if ref.GetObject().GetType() == "tag" { // annotated tag: peel to commit
+		tagObj, _, err := c.client.Git.GetTag(ctx, owner, name, sha)
+		if err != nil {
+			return "", err
+		}
+		sha = tagObj.GetObject().GetSHA()
+	}
+	return sha, nil
+}
+func (c *Client) ListReleaseAssets(ctx context.Context, owner, name string, releaseID int64) ([]*gh.ReleaseAsset, error) {
+	var out []*gh.ReleaseAsset
+	opts := &gh.ListOptions{PerPage: 100}
+	for {
+		assets, resp, err := c.client.Repositories.ListReleaseAssets(ctx, owner, name, releaseID, opts)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, assets...)
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+	return out, nil
+}
+
+func (c *Client) DeleteReleaseAsset(ctx context.Context, owner, name string, assetID int64) error {
+	_, err := c.client.Repositories.DeleteReleaseAsset(ctx, owner, name, assetID)
+	return err
+}
+
+func (c *Client) UploadReleaseAsset(ctx context.Context, owner, name string, releaseID int64, assetName string, file *os.File) (*gh.ReleaseAsset, error) {
+	opts := &gh.UploadOptions{Name: assetName}
+	if mt := mime.TypeByExtension(filepath.Ext(assetName)); mt != "" {
+		opts.MediaType = mt
+	}
+	asset, _, err := c.client.Repositories.UploadReleaseAsset(ctx, owner, name, releaseID, opts, file)
+	if err != nil {
+		return nil, err
+	}
+	return asset, nil
 }

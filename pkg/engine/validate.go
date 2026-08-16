@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -49,6 +50,7 @@ func (p *Pipeline) Validate() error {
 	p.validateDependencies(&errs)
 	p.validateArtifacts(&errs)
 	p.validateGraphs(&errs)
+	p.validateGitHub(&errs)
 
 	if len(errs.Errors) > 0 {
 		return errs
@@ -341,6 +343,57 @@ func (p *Pipeline) validateGraphs(errs *ValidationErrors) {
 	for _, job := range p.Jobs {
 		if color[job.Name] == white {
 			dfs(job.Name)
+		}
+	}
+}
+
+func (p *Pipeline) validateGitHub(errs *ValidationErrors) {
+	if p.GitHub == nil {
+		return
+	}
+
+	if pc := p.GitHub.Push; pc != nil {
+		for _, g := range append(append([]string{}, pc.Branches...), pc.Tags...) {
+			if _, err := path.Match(g, "sample"); err != nil {
+				errs.Add(ValidationError{
+					Location: "github.push",
+					Message:  "branches/tags must be valid glob patterns: " + err.Error(),
+				})
+			}
+		}
+	}
+
+	rel := p.GitHub.Release
+	if rel == nil {
+		return
+	}
+
+	switch rel.On {
+	case "", "created", "edited", "published", "prereleased", "released":
+	default:
+		errs.Add(ValidationError{
+			Location: "github.release.on",
+			Message:  "must be a github release action: created, edited, published, prereleased, released",
+		})
+	}
+
+	seen := make(map[string]struct{})
+	for idx, a := range rel.Artifacts {
+		location := fmt.Sprintf("release artifact %d", idx+1)
+		if a.Job == "" || a.Name == "" {
+			errs.Add(ValidationError{Location: location, Message: "job and name are required"})
+			continue
+		}
+		if _, err := p.LookupArtifact(a.Job, a.Name); err != nil {
+			errs.Add(ValidationError{Location: location, Message: err.Error()})
+		}
+		key := a.Job + "/" + a.Name
+		if _, ok := seen[key]; ok {
+			errs.Add(ValidationError{Location: location, Message: fmt.Sprintf("duplicate release artifact '%s'", key)})
+		}
+		seen[key] = struct{}{}
+		if a.As != "" && !re.MatchString(a.As) {
+			errs.Add(ValidationError{Location: location, Message: "as must be a valid filename"})
 		}
 	}
 }

@@ -33,10 +33,11 @@ best-effort.
 - [x] Artifacts Core
 - [x] Checkout Core
 - [x] Integrations: Generalization
-- [ ] Integrations: Github Integration!
-- [ ] CLI (🔄️ In progress)
-- [ ] CLI: Pretty printing
-- [ ] API (🔄️ In progress)
+- [x] Integrations: Github: Push
+- [ ] Integrations: Github: Release
+- [x] CLI
+- [x] CLI: Pretty printing
+- [x] API
 - [x] API: Auth!
 - [x] API: Logs Streaming
 - [x] API: Per Pipeline Visibility

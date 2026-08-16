@@ -9,8 +9,6 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
-// The spinner mirrors the GitHub CLI: a cyan braille spinner on stderr with
-// the message as a prefix. See https://github.com/cli/cli/blob/trunk/pkg/iostreams/iostreams.go
 const (
 	spinnerChars    = 11
 	spinnerInterval = 120 * time.Millisecond
@@ -22,8 +20,6 @@ type Spinner struct {
 	spin *spinner.Spinner
 }
 
-// NewSpinner returns a spinner that writes to w. It is a no-op unless w is a
-// terminal, so piped output stays clean.
 func NewSpinner(w io.Writer, msg string) *Spinner {
 	opts := []spinner.Option{}
 	if f, ok := w.(*os.File); ok {
@@ -90,6 +86,5 @@ func red(s string) string   { return paint(escRed, s) }
 func green(s string) string { return paint(escGreen, s) }
 func gray(s string) string  { return paint(escGray, s) }
 
-// successIcon and failureIcon match the icons used by `gh` (✓ and X).
 func successIcon() string { return green("✓") }
 func failureIcon() string { return red("X") }

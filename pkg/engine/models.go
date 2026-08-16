@@ -11,6 +11,28 @@ type Pipeline struct {
 	Visibility  string            `json:"visibility,omitempty"`
 	Checkout    checkout.Checkout `json:"checkout"`
 	Jobs        []Job             `json:"jobs"`
+	GitHub      *GitHub           `json:"github,omitempty"`
+}
+
+type GitHub struct {
+	Push    *PushConfig    `json:"push,omitempty"`
+	Release *ReleaseConfig `json:"release,omitempty"`
+}
+
+type PushConfig struct {
+	Branches []string `json:"branches,omitempty"`
+	Tags     []string `json:"tags,omitempty"`
+}
+
+type ReleaseConfig struct {
+	On        string            `json:"on"`
+	Artifacts []ReleaseArtifact `json:"artifacts"`
+}
+
+type ReleaseArtifact struct {
+	Job  string `json:"job"`
+	Name string `json:"name"`
+	As   string `json:"as,omitempty"`
 }
 
 type Job struct {

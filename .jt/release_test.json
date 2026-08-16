@@ -1,0 +1,100 @@
+{
+    "name": "Release Build",
+    "description": "Exercises the github integration: runs on push to matching branches/tags, and on published releases uploads artifacts as release assets",
+    "visibility": "public",
+    "checkout": {
+        "url": "https://github.com/nxrmqlly/JitTrippin",
+        "ref": "master"
+    },
+    "github": {
+        "push": {
+            "branches": ["master", "main"],
+            "tags": ["v*"]
+        },
+        "release": {
+            "on": "published",
+            "artifacts": [
+                {
+                    "job": "package",
+                    "name": "release-bundle",
+                    "as": "jittrippin-release.tar"
+                },
+                {
+                    "job": "checksum",
+                    "name": "checksum",
+                    "as": "checksum.txt"
+                }
+            ]
+        }
+    },
+    "jobs": [
+        {
+            "name": "build",
+            "image": "alpine:latest",
+            "steps": [
+                {
+                    "name": "compile",
+                    "cmd": "mkdir -p bin && printf '#!/bin/sh\\necho \"jittrippin release binary v1.0.0\"\\n' > bin/jittrippin && chmod +x bin/jittrippin && echo '[build] built bin/jittrippin'"
+                },
+                {
+                    "name": "smoke",
+                    "cmd": "bin/jittrippin && echo '[build] binary runs'"
+                }
+            ],
+            "artifacts": [
+                {
+                    "name": "binary",
+                    "path": "bin/jittrippin"
+                }
+            ]
+        },
+        {
+            "name": "package",
+            "image": "alpine:latest",
+            "depends_on": [
+                {
+                    "job": "build",
+                    "requires": ["binary"]
+                }
+            ],
+            "steps": [
+                {
+                    "name": "verify-input",
+                    "cmd": "test -x bin/jittrippin && echo '[package] restored binary'"
+                },
+                {
+                    "name": "tar",
+                    "cmd": "mkdir -p release && tar -cf release/release.tar bin/jittrippin && echo '[package] created release/release.tar'"
+                }
+            ],
+            "artifacts": [
+                {
+                    "name": "release-bundle",
+                    "path": "release/release.tar"
+                }
+            ]
+        },
+        {
+            "name": "checksum",
+            "image": "alpine:latest",
+            "depends_on": [
+                {
+                    "job": "package",
+                    "requires": ["release-bundle"]
+                }
+            ],
+            "steps": [
+                {
+                    "name": "sha256",
+                    "cmd": "sha256sum release/release.tar > release/checksum.txt && echo '[checksum] wrote release/checksum.txt' && cat release/checksum.txt"
+                }
+            ],
+            "artifacts": [
+                {
+                    "name": "checksum",
+                    "path": "release/checksum.txt"
+                }
+            ]
+        }
+    ]
+}

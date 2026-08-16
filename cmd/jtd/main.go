@@ -103,6 +103,7 @@ func main() {
 		AppID:      os.Getenv("GITHUB_APP_ID"),
 		PrivateKey: os.Getenv("GITHUB_PRIVATE_KEY_PATH"),
 		PublicURL:  os.Getenv("JTD_PUBLIC_URL"),
+		AppSlug:    os.Getenv("GITHUB_APP_SLUG"),
 	}, st, mgr)
 
 	if err != nil {

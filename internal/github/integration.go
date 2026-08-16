@@ -3,7 +3,11 @@ package github
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"log"
+	"os"
+	"path"
 	"strconv"
 	"strings"
 
@@ -11,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/nxrmqlly/jittrippin/internal/daemon"
 	"github.com/nxrmqlly/jittrippin/internal/store"
+	"github.com/nxrmqlly/jittrippin/pkg/engine"
 	"golang.org/x/oauth2"
 )
 
@@ -65,7 +70,7 @@ func (i *Integration) installForOwner(ctx context.Context, cu *Client, owner str
 	return 0, ErrInstallNotFound
 }
 
-func (i *Integration) SubmitPush(ctx context.Context, tracked store.TrackedRepository, sha string, installID int64) ([]*daemon.Run, error) {
+func (i *Integration) SubmitPush(ctx context.Context, tracked store.TrackedRepository, ref, sha string, installID int64) ([]*daemon.Run, error) {
 	ts := i.srcs.Get(installID, i.appTS)
 
 	c, err := forInstallation(ts)
@@ -89,6 +94,9 @@ func (i *Integration) SubmitPush(ctx context.Context, tracked store.TrackedRepos
 
 	var runs []*daemon.Run
 	for _, p := range pipelines {
+		if !matchesPush(p, ref) {
+			continue
+		}
 		p.Checkout.URL = "https://github.com/" + tracked.FullName + ".git"
 		p.Checkout.Ref = sha
 		p.Checkout.Username = "x-access-token"
@@ -116,6 +124,154 @@ func (i *Integration) SubmitPush(ctx context.Context, tracked store.TrackedRepos
 		go i.reportCompletion(ctx, c, owner, name, sha, p.Name, run, target)
 	}
 	return runs, nil
+}
+
+type ReleaseInfo struct {
+	Action    string
+	Tag       string
+	ReleaseID int64
+}
+
+const defaultReleaseOn = "published"
+
+func (i *Integration) SubmitRelease(ctx context.Context, tracked store.TrackedRepository, installID int64, info ReleaseInfo) ([]*daemon.Run, error) {
+	ts := i.srcs.Get(installID, i.appTS)
+	c, err := forInstallation(ts)
+	if err != nil {
+		return nil, err
+	}
+	tok, err := ts.Token()
+	if err != nil {
+		return nil, err
+	}
+	parts := strings.SplitN(tracked.FullName, "/", 2)
+	if len(parts) != 2 {
+		return nil, errors.New("github: invalid full_name " + tracked.FullName)
+	}
+	owner, name := parts[0], parts[1]
+
+	sha, err := c.ResolveTagSHA(ctx, owner, name, info.Tag)
+	if err != nil {
+		return nil, err
+	}
+	pipelines, err := LoadPipelinesAtSHA(ctx, c, owner, name, sha)
+	if err != nil {
+		return nil, err
+	}
+
+	var runs []*daemon.Run
+	for _, p := range pipelines {
+		rel := releaseConfig(p)
+		if rel == nil {
+			continue
+		}
+		on := rel.On
+		if on == "" {
+			on = defaultReleaseOn
+		}
+		if on != info.Action {
+			continue
+		}
+		p.Checkout.URL = "https://github.com/" + tracked.FullName + ".git"
+		p.Checkout.Ref = sha
+		p.Checkout.Username = "x-access-token"
+		p.Checkout.Password = tok.AccessToken
+
+		run, err := i.mgr.Submit(tracked.OwnerID, p)
+		if err != nil {
+			return runs, err
+		}
+		runs = append(runs, run)
+
+		statusCtx := "jittrippin/" + p.Name
+		target := i.pub + "/runs/" + run.ID()
+		if err := c.CreateCommitStatus(ctx, CreateCommitStatusConfig{
+			Owner: owner, Name: name, SHA: sha, State: "pending",
+			Context: statusCtx, Desc: "jittrippin: release run started", TargetURL: target,
+		}); err != nil {
+			log.Printf("github: pending status failed: %v", err)
+		}
+		go i.reportRelease(ctx, c, owner, name, sha, p, run, target, tracked.OwnerID, info)
+	}
+	return runs, nil
+}
+
+func (i *Integration) reportRelease(ctx context.Context, c *Client, owner, name, sha string, p *engine.Pipeline, run *daemon.Run, target, ownerID string, info ReleaseInfo) {
+	run.Wait()
+	if run.Status() == daemon.StatusFailed {
+		i.setReleaseStatus(ctx, c, owner, name, sha, p.Name, "failure", "jittrippin: "+p.Name+" [failed]", target)
+		return
+	}
+
+	rel := releaseConfig(p)
+	if rel == nil {
+		return
+	}
+	uploaded := 0
+	for _, ra := range rel.Artifacts {
+		assetName := ra.As
+		if assetName == "" {
+			assetName = ra.Name + ".tar"
+		}
+		rc, err := i.mgr.GetArtifact(ctx, daemon.GetArtifactConfig{
+			RunID: run.ID(), UserID: ownerID, JobName: ra.Job, ArtifactName: ra.Name,
+		})
+		if err != nil {
+			log.Printf("github: release artifact load failed: %v", err)
+			i.setReleaseStatus(ctx, c, owner, name, sha, p.Name, "failure", "jittrippin: "+p.Name+" [artifact load failed]", target)
+			return
+		}
+		if err := i.uploadReleaseAsset(ctx, c, owner, name, info.ReleaseID, assetName, rc); err != nil {
+			rc.Close()
+			log.Printf("github: release asset upload failed: %v", err)
+			i.setReleaseStatus(ctx, c, owner, name, sha, p.Name, "failure", "jittrippin: "+p.Name+" [asset upload failed]", target)
+			return
+		}
+		rc.Close()
+		uploaded++
+	}
+	i.setReleaseStatus(ctx, c, owner, name, sha, p.Name, "success",
+		fmt.Sprintf("jittrippin: %s [passed] (%d assets)", p.Name, uploaded), target)
+}
+
+func (i *Integration) uploadReleaseAsset(ctx context.Context, c *Client, owner, name string, releaseID int64, assetName string, rc io.ReadCloser) error {
+	f, err := os.CreateTemp("", "jt-release-*")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	defer os.Remove(f.Name())
+
+	if _, err := io.Copy(f, rc); err != nil {
+		return err
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+
+	assets, err := c.ListReleaseAssets(ctx, owner, name, releaseID)
+	if err != nil {
+		return err
+	}
+	for _, a := range assets {
+		if a.GetName() == assetName {
+			if err := c.DeleteReleaseAsset(ctx, owner, name, a.GetID()); err != nil {
+				return err
+			}
+			break
+		}
+	}
+	_, err = c.UploadReleaseAsset(ctx, owner, name, releaseID, assetName, f)
+	return err
+}
+
+func (i *Integration) setReleaseStatus(ctx context.Context, c *Client, owner, name, sha, pipelineName, state, descr, target string) {
+	if err := c.CreateCommitStatus(ctx, CreateCommitStatusConfig{
+		Owner: owner, Name: name, SHA: sha, State: state,
+		Context: "jittrippin/" + pipelineName, Desc: descr, TargetURL: target,
+	}); err != nil {
+		log.Printf("github: release status failed: %v", err)
+	}
 }
 
 func (i *Integration) reportCompletion(ctx context.Context, c *Client, owner, name, sha, pipelineName string, run *daemon.Run, target string) {
@@ -301,4 +457,55 @@ func (i *Integration) UnlinkUserIntegration(ctx context.Context, userID, provide
 	}
 	// cascade delete repos
 	return i.st.DeleteTrackedRepositoriesByProvider(ctx, userID, provider)
+}
+
+func pushConfig(p *engine.Pipeline) *engine.PushConfig {
+	if p == nil || p.GitHub == nil {
+		return nil
+	}
+	return p.GitHub.Push
+}
+
+func releaseConfig(p *engine.Pipeline) *engine.ReleaseConfig {
+	if p == nil || p.GitHub == nil {
+		return nil
+	}
+	return p.GitHub.Release
+}
+
+func matchesPush(p *engine.Pipeline, ref string) bool {
+	if p.GitHub == nil {
+		return true // legacy: no github block, keep running on push
+	}
+	pc := p.GitHub.Push
+	if pc == nil {
+		return false // declared github but no push trigger
+	}
+
+	switch {
+	case strings.HasPrefix(ref, "refs/heads/"):
+		if len(pc.Branches) == 0 {
+			return true
+		}
+		name := strings.TrimPrefix(ref, "refs/heads/")
+		for _, g := range pc.Branches {
+			if ok, _ := path.Match(g, name); ok {
+				return true
+			}
+		}
+		return false
+	case strings.HasPrefix(ref, "refs/tags/"):
+		if len(pc.Tags) == 0 {
+			return true
+		}
+		name := strings.TrimPrefix(ref, "refs/tags/")
+		for _, g := range pc.Tags {
+			if ok, _ := path.Match(g, name); ok {
+				return true
+			}
+		}
+		return false
+	default:
+		return len(pc.Branches) == 0 && len(pc.Tags) == 0
+	}
 }

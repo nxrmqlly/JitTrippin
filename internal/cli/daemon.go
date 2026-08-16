@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -28,7 +29,11 @@ func handlePing(ctx context.Context, c *cli.Command) error {
 	}
 	client := newDaemonClient(base)
 	start := time.Now()
-	if err := checkHealth(ctx, client); err != nil {
+	spin := NewSpinner(os.Stderr, "Pinging daemon")
+	spin.Start()
+	err = checkHealth(ctx, client)
+	spin.Stop()
+	if err != nil {
 		return fmt.Errorf("daemon %s is unreachable: %w", base, err)
 	}
 	fmt.Printf("ok %s (%s)\n", base, time.Since(start).Round(time.Millisecond))
@@ -47,7 +52,11 @@ func CmdDaemon() *cli.Command {
 func handleDaemon(ctx context.Context, c *cli.Command) error {
 	if set := c.String("set"); set != "" {
 		set = strings.TrimRight(set, "/")
-		if err := checkHealth(ctx, newDaemonClient(set)); err != nil {
+		spin := NewSpinner(os.Stderr, "Checking daemon health")
+		spin.Start()
+		err := checkHealth(ctx, newDaemonClient(set))
+		spin.Stop()
+		if err != nil {
 			return fmt.Errorf("cannot switch to %s: %w", set, err)
 		}
 		if hasSession() {
@@ -79,7 +88,11 @@ func handleDaemon(ctx context.Context, c *cli.Command) error {
 		return err
 	}
 	client := newDaemonClient(base)
-	if err := checkHealth(ctx, client); err != nil {
+	spin := NewSpinner(os.Stderr, "Checking daemon health")
+	spin.Start()
+	err = checkHealth(ctx, client)
+	spin.Stop()
+	if err != nil {
 		fmt.Printf("Daemon: %s (unreachable: %v)\n", base, err)
 		return nil
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -122,6 +123,9 @@ func oauthDance(ctx context.Context, client *daemonClient, provider string, noOp
 		w.Write([]byte("You can close this tab and return to the terminal."))
 	})}
 	go func() { errCh <- srv.Serve(ln) }()
+	spin := NewSpinner(os.Stderr, "Waiting for browser callback")
+	spin.Start()
+	defer spin.Stop()
 	var authCode string
 	select {
 	case authCode = <-codeCh:

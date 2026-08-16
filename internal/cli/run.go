@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/nxrmqlly/jittrippin/helpers"
 	"github.com/nxrmqlly/jittrippin/pkg/artifact"
 	"github.com/nxrmqlly/jittrippin/pkg/checkout"
@@ -270,11 +271,6 @@ func (r *liveRun) terminal() bool {
 	return r.status != "running"
 }
 
-func stdoutIsTerminal() bool {
-	fi, err := os.Stdout.Stat()
-	return err == nil && fi.Mode()&os.ModeCharDevice != 0
-}
-
 func runRemote(ctx context.Context, c *cli.Command, pipelines []*engine.Pipeline) error {
 	client, err := ensureSession(c)
 	if err != nil {
@@ -298,7 +294,14 @@ func runRemote(ctx context.Context, c *cli.Command, pipelines []*engine.Pipeline
 	}
 	fmt.Println()
 
-	live := !c.Bool("quiet") && stdoutIsTerminal()
+	live := !c.Bool("quiet") && isTerminal(os.Stdout)
+
+	var spin *Spinner
+	if !live {
+		spin = NewSpinner(os.Stderr, "Waiting for pipelines to finish")
+		spin.Start()
+		defer spin.Stop()
+	}
 
 	var lastLines int
 	clearBlock := func() {
@@ -308,31 +311,40 @@ func runRemote(ctx context.Context, c *cli.Command, pipelines []*engine.Pipeline
 		lastLines = 0
 	}
 
-	tick := time.NewTicker(time.Second)
-	defer tick.Stop()
+	poll := time.NewTicker(time.Second)
+	defer poll.Stop()
+	anim := time.NewTicker(100 * time.Millisecond)
+	defer anim.Stop()
 
 	failed := false
+	var lastPoll time.Time
 	for {
-		allDone := true
-		for _, lr := range runs {
-			res, err := client.RunGet(lr.id)
-			if err != nil {
-				lr.errCount++
-				if lr.errCount >= 3 {
-					lr.status = "error"
+		if now := time.Now(); now.Sub(lastPoll) >= time.Second {
+			lastPoll = now
+			allDone := true
+			for _, lr := range runs {
+				res, err := client.RunGet(lr.id)
+				if err != nil {
+					lr.errCount++
+					if lr.errCount >= 3 {
+						lr.status = "error"
+						failed = true
+					}
+				} else {
+					lr.errCount = 0
+					lr.status = res.Status
+					if res.Error != nil {
+						lr.err = res.Error
+					}
+				}
+				if !lr.terminal() {
+					allDone = false
+				} else if lr.status == "failed" || lr.status == "error" {
 					failed = true
 				}
-			} else {
-				lr.errCount = 0
-				lr.status = res.Status
-				if res.Error != nil {
-					lr.err = res.Error
-				}
 			}
-			if !lr.terminal() {
-				allDone = false
-			} else if lr.status == "failed" || lr.status == "error" {
-				failed = true
+			if allDone {
+				break
 			}
 		}
 
@@ -341,17 +353,20 @@ func runRemote(ctx context.Context, c *cli.Command, pipelines []*engine.Pipeline
 			lastLines = renderLive(runs)
 		}
 
-		if allDone || ctx.Err() != nil {
+		if ctx.Err() != nil {
 			break
 		}
 		select {
-		case <-tick.C:
+		case <-anim.C:
 		case <-ctx.Done():
 		}
 	}
 
 	if live {
 		clearBlock()
+	}
+	if spin != nil {
+		spin.Stop()
 	}
 	renderChecklist(runs, client.baseURL)
 
@@ -371,14 +386,24 @@ func runRemote(ctx context.Context, c *cli.Command, pipelines []*engine.Pipeline
 	return nil
 }
 
+func statusMark(status string) string {
+	switch status {
+	case "succeeded":
+		return "✓"
+	case "failed", "error":
+		return "✗"
+	case "running", "":
+		cs := spinner.CharSets[14]
+		return cs[int(time.Now().UnixMilli()/100)%len(cs)]
+	default:
+		return "?"
+	}
+}
+
 func renderLive(runs []*liveRun) int {
 	lines := 0
 	for _, lr := range runs {
-		status := lr.status
-		if status == "" {
-			status = "running"
-		}
-		fmt.Printf("%s (%s)\n", lr.p.Name, status)
+		fmt.Printf("%s %s\n", statusMark(lr.status), lr.p.Name)
 		lines++
 		for _, lj := range lr.jobs {
 			tail := lj.Tail()
@@ -402,9 +427,9 @@ func renderChecklist(runs []*liveRun, baseURL string) {
 	for _, lr := range runs {
 		switch lr.status {
 		case "succeeded":
-			fmt.Printf("✓ %s (succeeded)\n", lr.p.Name)
+			fmt.Printf("✓ %s\n", lr.p.Name)
 		case "failed", "error":
-			fmt.Printf("✗ %s (failed)\n", lr.p.Name)
+			fmt.Printf("✗ %s\n", lr.p.Name)
 			if lr.err != nil && *lr.err != "" {
 				fmt.Printf("  error: %s\n", *lr.err)
 			}
@@ -413,7 +438,7 @@ func renderChecklist(runs []*liveRun, baseURL string) {
 				fmt.Printf("    %s/runs/%s/logs/%s\n", baseURL, lr.id, job.Name)
 			}
 		default:
-			fmt.Printf("? %s (%s)\n", lr.p.Name, lr.status)
+			fmt.Printf("? %s\n", lr.p.Name)
 		}
 	}
 }

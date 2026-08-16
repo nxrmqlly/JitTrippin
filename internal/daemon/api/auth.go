@@ -140,7 +140,7 @@ func (ro *Router) handleAuthMe(w http.ResponseWriter, r *http.Request) {
 	}
 	me, err := ro.auth.Me(r.Context(), usr.ID)
 	if err != nil {
-		httpx.InternalServerError(w)
+		httpx.InternalServerError(w, err)
 		return
 	}
 	resp := meResponse{

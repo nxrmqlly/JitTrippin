@@ -1,5 +1,6 @@
 {
     "name": "Artifact Roundtrip Test",
+    "visibility": "public",
     "description": "Verifies CopyOut -> Store -> CopyIn end-to-end",
     "jobs": [
         {

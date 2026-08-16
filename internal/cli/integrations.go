@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -62,6 +63,9 @@ func handleIntegrationsList(ctx context.Context, c *cli.Command) error {
 
 func waitForInstall(client *daemonClient) error {
 	deadline := time.Now().Add(loginTimeout)
+	spin := NewSpinner(os.Stderr, "Waiting for installation")
+	spin.Start()
+	defer spin.Stop()
 	for {
 		st, err := client.InstallStatus()
 		if err == nil && st.Installed {
@@ -70,7 +74,6 @@ func waitForInstall(client *daemonClient) error {
 		if time.Now().After(deadline) {
 			return errors.New("timed out waiting for installation")
 		}
-		fmt.Println("    waiting for install...")
 		time.Sleep(2 * time.Second)
 	}
 }

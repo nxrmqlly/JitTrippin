@@ -1,6 +1,7 @@
 {
     "name": "Go API Server CI/CD",
     "description": "Full pipeline: lint + build -> test + security scan -> package -> deploy with artifact passing",
+    "visibility": "public",
     "checkout": {
         "url": "https://github.com/nxrmqlly/JitTrippin",
         "ref": "master"
@@ -56,9 +57,7 @@
             "depends_on": [
                 {
                     "job": "build",
-                    "requires": [
-                        "server-binary"
-                    ]
+                    "requires": ["server-binary"]
                 }
             ],
             "steps": [
@@ -92,9 +91,7 @@
             "depends_on": [
                 {
                     "job": "build",
-                    "requires": [
-                        "server-binary"
-                    ]
+                    "requires": ["server-binary"]
                 }
             ],
             "steps": [
@@ -120,28 +117,19 @@
             "depends_on": [
                 {
                     "job": "build",
-                    "requires": [
-                        "server-binary"
-                    ]
+                    "requires": ["server-binary"]
                 },
                 {
                     "job": "lint",
-                    "requires": [
-                        "lint-report"
-                    ]
+                    "requires": ["lint-report"]
                 },
                 {
                     "job": "unit-test",
-                    "requires": [
-                        "test-report",
-                        "coverage-report"
-                    ]
+                    "requires": ["test-report", "coverage-report"]
                 },
                 {
                     "job": "security-scan",
-                    "requires": [
-                        "security-report"
-                    ]
+                    "requires": ["security-report"]
                 }
             ],
             "steps": [
@@ -175,10 +163,7 @@
             "depends_on": [
                 {
                     "job": "package",
-                    "requires": [
-                        "release-bundle",
-                        "checksum"
-                    ]
+                    "requires": ["release-bundle", "checksum"]
                 }
             ],
             "steps": [

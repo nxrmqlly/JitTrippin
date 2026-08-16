@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"charm.land/huh/v2"
 	"github.com/nxrmqlly/jittrippin/helpers"
@@ -50,19 +49,10 @@ func handleReposAdd(ctx context.Context, c *cli.Command) error {
 	if !st.Installed {
 		fmt.Printf("JitTrippin is not installed for your GitHub account.\nOpen this URL to install it:\n\n    %s\n\n", st.InstallURL)
 		_ = openBrowser(st.InstallURL)
-		deadline := time.Now().Add(loginTimeout)
-		for {
-			cur, err := client.InstallStatus()
-			if err == nil && cur.Installed {
-				fmt.Println("    OK JitTrippin installed")
-				break
-			}
-			if time.Now().After(deadline) {
-				return errors.New("timed out waiting for installation")
-			}
-			fmt.Println("    waiting for install...")
-			time.Sleep(2 * time.Second)
+		if err := waitForInstall(client); err != nil {
+			return err
 		}
+		fmt.Println("    OK JitTrippin installed")
 	}
 	repos, err := client.InstallableRepos()
 	if err != nil {

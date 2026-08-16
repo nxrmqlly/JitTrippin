@@ -136,6 +136,6 @@ func runError(w http.ResponseWriter, err error) {
 
 	default:
 		log.Printf("500: %s", err.Error())
-		httpx.InternalServerError(w) // 500
+		httpx.InternalServerError(w, err) // 500
 	}
 }

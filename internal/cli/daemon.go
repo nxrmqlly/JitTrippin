@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -29,10 +28,9 @@ func handlePing(ctx context.Context, c *cli.Command) error {
 	}
 	client := newDaemonClient(base)
 	start := time.Now()
-	spin := NewSpinner(os.Stderr, "Pinging daemon")
-	spin.Start()
-	err = checkHealth(ctx, client)
-	spin.Stop()
+	err = RunWithProgress("Pinging daemon", func() error {
+		return checkHealth(ctx, client)
+	})
 	if err != nil {
 		return fmt.Errorf("daemon %s is unreachable: %w", base, err)
 	}
@@ -52,10 +50,9 @@ func CmdDaemon() *cli.Command {
 func handleDaemon(ctx context.Context, c *cli.Command) error {
 	if set := c.String("set"); set != "" {
 		set = strings.TrimRight(set, "/")
-		spin := NewSpinner(os.Stderr, "Checking daemon health")
-		spin.Start()
-		err := checkHealth(ctx, newDaemonClient(set))
-		spin.Stop()
+		err := RunWithProgress("Checking daemon health", func() error {
+			return checkHealth(ctx, newDaemonClient(set))
+		})
 		if err != nil {
 			return fmt.Errorf("cannot switch to %s: %w", set, err)
 		}
@@ -88,10 +85,9 @@ func handleDaemon(ctx context.Context, c *cli.Command) error {
 		return err
 	}
 	client := newDaemonClient(base)
-	spin := NewSpinner(os.Stderr, "Checking daemon health")
-	spin.Start()
-	err = checkHealth(ctx, client)
-	spin.Stop()
+	err = RunWithProgress("Checking daemon health", func() error {
+		return checkHealth(ctx, client)
+	})
 	if err != nil {
 		fmt.Printf("Daemon: %s (unreachable: %v)\n", base, err)
 		return nil

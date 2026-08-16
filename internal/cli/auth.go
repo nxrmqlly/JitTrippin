@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -123,18 +122,20 @@ func oauthDance(ctx context.Context, client *daemonClient, provider string, noOp
 		w.Write([]byte("You can close this tab and return to the terminal."))
 	})}
 	go func() { errCh <- srv.Serve(ln) }()
-	spin := NewSpinner(os.Stderr, "Waiting for browser callback")
-	spin.Start()
-	defer spin.Stop()
 	var authCode string
-	select {
-	case authCode = <-codeCh:
-	case err := <-errCh:
+	if err := RunWithProgress("Waiting for browser callback", func() error {
+		select {
+		case authCode = <-codeCh:
+		case err := <-errCh:
+			return err
+		case <-time.After(loginTimeout):
+			return errors.New("timed out: login not completed in time")
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		return nil
+	}); err != nil {
 		return "", err
-	case <-time.After(loginTimeout):
-		return "", errors.New("timed out: login not completed in time")
-	case <-ctx.Done():
-		return "", ctx.Err()
 	}
 
 	_ = srv.Close()
@@ -173,7 +174,7 @@ func handleAuthLogin(ctx context.Context, c *cli.Command) error {
 	if err := saveSession(&Session{Token: token, Provider: provider}); err != nil {
 		return err
 	}
-	fmt.Println("\n    Logged in successfully.")
+	fmt.Printf("%s Logged in successfully.\n", successIcon())
 	return nil
 }
 

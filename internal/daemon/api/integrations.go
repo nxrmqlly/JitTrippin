@@ -20,7 +20,7 @@ func (ro *Router) handleIntegrationList(w http.ResponseWriter, r *http.Request) 
 	}
 	integrations, err := ro.gh.ListUserIntegrations(r.Context(), usr.ID)
 	if err != nil {
-		httpx.InternalServerError(w)
+		httpx.InternalServerError(w, err)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, struct {
@@ -44,7 +44,7 @@ func (ro *Router) handleIntegrationAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	installs, err := ro.gh.LinkUserIntegration(r.Context(), usr.ID, token)
 	if err != nil {
-		httpx.InternalServerError(w)
+		httpx.InternalServerError(w, err)
 		return
 	}
 	accounts := make([]installAcct, 0, len(installs))
@@ -66,7 +66,7 @@ func (ro *Router) handleIntegrationRemove(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if err := ro.gh.UnlinkUserIntegration(r.Context(), usr.ID, r.PathValue("provider")); err != nil {
-		httpx.InternalServerError(w)
+		httpx.InternalServerError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

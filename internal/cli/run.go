@@ -259,16 +259,70 @@ func (j *liveJob) stream(client *daemonClient, runID string) {
 }
 
 type liveRun struct {
-	p        *engine.Pipeline
-	id       string
-	jobs     []*liveJob
+	p    *engine.Pipeline
+	id   string
+	jobs []*liveJob
+
+	mu       sync.Mutex
 	status   string
 	err      *string
 	errCount int
 }
 
 func (r *liveRun) terminal() bool {
-	return r.status != "running"
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	switch r.status {
+	case "running", "":
+		return false
+	default:
+		return true
+	}
+}
+
+func (r *liveRun) failed() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.status == "failed" || r.status == "error"
+}
+
+func (r *liveRun) snapshot() (string, *string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.status, r.err
+}
+
+// pollRuns refreshes every run's status once per second from a background
+// goroutine so a slow daemon response never stalls the live render.
+func pollRuns(ctx context.Context, client *daemonClient, runs []*liveRun, stop <-chan struct{}) {
+	t := time.NewTicker(time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-t.C:
+			for _, lr := range runs {
+				res, err := client.RunGet(lr.id)
+				lr.mu.Lock()
+				if err != nil {
+					lr.errCount++
+					if lr.errCount >= 3 {
+						lr.status = "error"
+					}
+				} else {
+					lr.errCount = 0
+					lr.status = res.Status
+					if res.Error != nil {
+						lr.err = res.Error
+					}
+				}
+				lr.mu.Unlock()
+			}
+		case <-stop:
+			return
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func runRemote(ctx context.Context, c *cli.Command, pipelines []*engine.Pipeline) error {
@@ -303,6 +357,10 @@ func runRemote(ctx context.Context, c *cli.Command, pipelines []*engine.Pipeline
 		defer spin.Stop()
 	}
 
+	stopPoll := make(chan struct{})
+	defer close(stopPoll)
+	go pollRuns(ctx, client, runs, stopPoll)
+
 	var lastLines int
 	clearBlock := func() {
 		for range lastLines {
@@ -311,41 +369,22 @@ func runRemote(ctx context.Context, c *cli.Command, pipelines []*engine.Pipeline
 		lastLines = 0
 	}
 
-	poll := time.NewTicker(time.Second)
-	defer poll.Stop()
 	anim := time.NewTicker(100 * time.Millisecond)
 	defer anim.Stop()
 
 	failed := false
-	var lastPoll time.Time
 	for {
-		if now := time.Now(); now.Sub(lastPoll) >= time.Second {
-			lastPoll = now
-			allDone := true
-			for _, lr := range runs {
-				res, err := client.RunGet(lr.id)
-				if err != nil {
-					lr.errCount++
-					if lr.errCount >= 3 {
-						lr.status = "error"
-						failed = true
-					}
-				} else {
-					lr.errCount = 0
-					lr.status = res.Status
-					if res.Error != nil {
-						lr.err = res.Error
-					}
-				}
-				if !lr.terminal() {
-					allDone = false
-				} else if lr.status == "failed" || lr.status == "error" {
-					failed = true
-				}
+		allDone := true
+		for _, lr := range runs {
+			if !lr.terminal() {
+				allDone = false
 			}
-			if allDone {
-				break
+			if lr.failed() {
+				failed = true
 			}
+		}
+		if allDone {
+			break
 		}
 
 		if live {
@@ -389,49 +428,53 @@ func runRemote(ctx context.Context, c *cli.Command, pipelines []*engine.Pipeline
 func statusMark(status string) string {
 	switch status {
 	case "succeeded":
-		return "✓"
+		return successIcon()
 	case "failed", "error":
-		return "✗"
+		return failureIcon()
 	case "running", "":
-		cs := spinner.CharSets[14]
-		return cs[int(time.Now().UnixMilli()/100)%len(cs)]
+		frames := spinner.CharSets[spinnerChars]
+		return gray(frames[int(time.Now().UnixMilli()/100)%len(frames)])
 	default:
 		return "?"
 	}
 }
 
 func renderLive(runs []*liveRun) int {
+	var buf strings.Builder
 	lines := 0
 	for _, lr := range runs {
-		fmt.Printf("%s %s\n", statusMark(lr.status), lr.p.Name)
+		status, _ := lr.snapshot()
+		fmt.Fprintf(&buf, "%s %s\n", statusMark(status), lr.p.Name)
 		lines++
 		for _, lj := range lr.jobs {
 			tail := lj.Tail()
 			if len(tail) == 0 {
-				fmt.Printf("  %s: (no output yet)\n", lj.name)
+				fmt.Fprintf(&buf, "  %s: (no output yet)\n", lj.name)
 				lines++
 				continue
 			}
-			fmt.Printf("  %s:\n", lj.name)
+			fmt.Fprintf(&buf, "  %s:\n", lj.name)
 			lines++
 			for _, l := range tail {
-				fmt.Printf("    %s\n", l)
+				fmt.Fprintf(&buf, "    %s\n", l)
 				lines++
 			}
 		}
 	}
+	fmt.Fprint(os.Stdout, buf.String())
 	return lines
 }
 
 func renderChecklist(runs []*liveRun, baseURL string) {
 	for _, lr := range runs {
-		switch lr.status {
+		status, err := lr.snapshot()
+		switch status {
 		case "succeeded":
-			fmt.Printf("✓ %s\n", lr.p.Name)
+			fmt.Printf("%s %s\n", successIcon(), lr.p.Name)
 		case "failed", "error":
-			fmt.Printf("✗ %s\n", lr.p.Name)
-			if lr.err != nil && *lr.err != "" {
-				fmt.Printf("  error: %s\n", *lr.err)
+			fmt.Printf("%s %s\n", failureIcon(), lr.p.Name)
+			if err != nil && *err != "" {
+				fmt.Printf("  error: %s\n", *err)
 			}
 			fmt.Printf("  logs: %s/runs/%s\n", baseURL, lr.id)
 			for _, job := range lr.p.Jobs {

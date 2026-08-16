@@ -45,3 +45,7 @@ type errBody struct {
 func ErrorJSON(w http.ResponseWriter, status int, msg string) {
 	WriteJSON(w, status, errBody{Error: msg})
 }
+
+func InternalServerError(w http.ResponseWriter) {
+	ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+}

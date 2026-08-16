@@ -106,7 +106,7 @@ func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 			strconv.FormatInt(event.Repository.ID, 10),
 		)
 		if err != nil {
-			httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+			httpx.InternalServerError(w)
 			return
 		}
 		if len(tracked) == 0 {
@@ -167,7 +167,7 @@ func (ro *Router) handleGithubAdd(w http.ResponseWriter, r *http.Request) {
 			httpx.ErrorJSON(w, http.StatusBadRequest, "app is not installed for this repository owner")
 			return
 		}
-		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		httpx.InternalServerError(w)
 		return
 	}
 
@@ -182,7 +182,7 @@ func (ro *Router) handleGithubList(w http.ResponseWriter, r *http.Request) {
 
 	repos, err := ro.mgr.ListTrackedRepositoriesByOwner(usr.ID)
 	if err != nil {
-		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		httpx.InternalServerError(w)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, repos)
@@ -200,7 +200,7 @@ func (ro *Router) handleGithubRemove(w http.ResponseWriter, r *http.Request) {
 			httpx.ErrorJSON(w, http.StatusNotFound, "not found")
 			return
 		}
-		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		httpx.InternalServerError(w)
 		return
 	}
 	if repo.OwnerID != usr.ID {
@@ -208,7 +208,7 @@ func (ro *Router) handleGithubRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := ro.mgr.DeleteTrackedRepository(repo.ID); err != nil {
-		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		httpx.InternalServerError(w)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -268,7 +268,7 @@ func (ro *Router) handleGithubInstallStatus(w http.ResponseWriter, r *http.Reque
 	}
 	res, err := ro.gh.InstallStatus(r.Context(), token)
 	if err != nil {
-		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		httpx.InternalServerError(w)
 		return
 	}
 	resp := githubInstallStatusResponse{
@@ -302,7 +302,7 @@ func (ro *Router) handleGithubBranches(w http.ResponseWriter, r *http.Request) {
 			httpx.ErrorJSON(w, http.StatusBadRequest, "app is not installed for this repository owner")
 			return
 		}
-		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		httpx.InternalServerError(w)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, &githubBranchesResponse{Branches: branches})
@@ -330,7 +330,7 @@ func (ro *Router) handleGithubRepos(w http.ResponseWriter, r *http.Request) {
 	}
 	repos, err := ro.gh.ListInstallableRepos(r.Context(), token)
 	if err != nil {
-		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		httpx.InternalServerError(w)
 		return
 	}
 	var resp githubReposResponse

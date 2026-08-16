@@ -17,8 +17,10 @@ func New() *cli.Command {
 		Commands: []*cli.Command{
 			CmdRun(),
 			CmdValidate(),
-			CmdLogin(),
+			CmdAuth(),
 			CmdConnect(),
+			CmdPing(),
+			CmdDaemon(),
 		},
 	}
 }

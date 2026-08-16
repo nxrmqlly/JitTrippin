@@ -133,3 +133,37 @@ func daemonURL(c *cli.Command) (string, error) {
 	}
 	return cfg.Daemon, nil
 }
+
+func (c *daemonClient) Providers() ([]string, error) {
+	var out struct {
+		Providers []string `json:"providers"`
+	}
+	if err := c.do(http.MethodGet, "/api/v1/auth/providers", nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Providers, nil
+}
+
+type meResult struct {
+	User struct {
+		ID    string  `json:"id"`
+		Name  string  `json:"name"`
+		Email *string `json:"email,omitempty"`
+	} `json:"user"`
+	Identities []struct {
+		Provider string `json:"provider"`
+		Login    string `json:"login,omitempty"`
+	} `json:"identities"`
+}
+
+func (c *daemonClient) Me() (*meResult, error) {
+	var out meResult
+	if err := c.do(http.MethodGet, "/api/v1/auth/me", nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *daemonClient) RemoveIntegration(provider string) error {
+	return c.do(http.MethodDelete, "/api/v1/auth/"+provider, nil, nil)
+}

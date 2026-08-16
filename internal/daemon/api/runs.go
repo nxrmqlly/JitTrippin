@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/nxrmqlly/jittrippin/internal/daemon"
 	"github.com/nxrmqlly/jittrippin/internal/daemon/httpx"
@@ -63,6 +64,12 @@ func (ro *Router) handleRunSubmit(w http.ResponseWriter, r *http.Request) {
 	var p engine.Pipeline
 	if !httpx.BindJSON(w, r, &p) {
 		return
+	}
+	if strings.Contains(p.Checkout.URL, "github.com") {
+		if tok, err := ro.userGithubToken(r.Context(), usr.ID); err == nil {
+			p.Checkout.Username = "x-access-token"
+			p.Checkout.Password = tok
+		}
 	}
 	run, err := ro.mgr.Submit(usr.ID, &p)
 	if err != nil {

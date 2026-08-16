@@ -1,15 +1,19 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/nxrmqlly/jittrippin/internal/config"
+	"github.com/nxrmqlly/jittrippin/pkg/engine"
+	"github.com/nxrmqlly/jittrippin/pkg/logs"
 	"github.com/urfave/cli/v3"
 )
 
@@ -69,6 +73,83 @@ func (c *daemonClient) do(method, path string, body, out any) error {
 	}
 	_, _ = io.Copy(io.Discard, resp.Body)
 	return nil
+}
+
+type runResult struct {
+	ID         string     `json:"id"`
+	Status     string     `json:"status"`
+	CreatedAt  time.Time  `json:"created_at"`
+	FinishedAt *time.Time `json:"finished_at"`
+	Error      *string    `json:"error"`
+}
+
+func (c *daemonClient) SubmitRun(p *engine.Pipeline) (string, error) {
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := c.do(http.MethodPost, "/api/v1/runs", p, &out); err != nil {
+		return "", err
+	}
+	return out.ID, nil
+}
+
+func (c *daemonClient) RunGet(id string) (*runResult, error) {
+	var out runResult
+	if err := c.do(http.MethodGet, "/api/v1/runs/"+id, nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *daemonClient) CancelRun(id string) error {
+	return c.do(http.MethodPost, "/api/v1/runs/"+id+"/cancel", nil, nil)
+}
+
+func (c *daemonClient) StreamLogs(runID, job string) (<-chan logs.Line, func(), error) {
+	req, err := http.NewRequest(http.MethodGet, c.baseURL+"/api/v1/runs/"+runID+"/logs/"+job+"/live", nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var eb struct {
+			Error string `json:"error"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&eb)
+		resp.Body.Close()
+		return nil, nil, apiErr{Status: resp.StatusCode, Msg: eb.Error}
+	}
+
+	ch := make(chan logs.Line, 256)
+	stop := func() { resp.Body.Close() }
+	go func() {
+		defer close(ch)
+		sc := bufio.NewScanner(resp.Body)
+		sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		for sc.Scan() {
+			line := strings.TrimPrefix(sc.Text(), "data: ")
+			if line == "" {
+				continue
+			}
+			var ll logs.Line
+			if err := json.Unmarshal([]byte(line), &ll); err != nil {
+				continue
+			}
+			select {
+			case ch <- ll:
+			case <-req.Context().Done():
+				return
+			}
+			if err := sc.Err(); err != nil {
+				log.Printf("log stream failed run_id=%s job=%s: %s", runID, job, err.Error())
+			}
+		}
+	}()
+	return ch, stop, nil
 }
 
 // Begin starts the authentication process with the daemon and returns the next URL

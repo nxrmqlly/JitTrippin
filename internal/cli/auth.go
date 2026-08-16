@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -40,15 +39,6 @@ func CmdAuthLogin() *cli.Command {
 	}
 }
 
-func cfgFileExists() bool {
-	p, err := config.UserConfigPath()
-	if err != nil {
-		return false
-	}
-	_, err = os.Stat(p)
-	return err == nil
-}
-
 func ensureSession(c *cli.Command) (*daemonClient, error) {
 	sess, err := loadSession()
 	if err != nil {
@@ -74,7 +64,7 @@ func ensureDaemonURL(c *cli.Command) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if cfgFileExists() {
+	if config.UserConfigExists() {
 		return cfg.Daemon, nil
 	}
 	u := config.DefaultDaemon

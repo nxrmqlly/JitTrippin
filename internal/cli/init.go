@@ -20,7 +20,7 @@ func findProjectConfig() (string, bool) {
 	}
 	for {
 		p := filepath.Join(dir, projConfFile)
-		if _, err := os.Stat(p); err != nil {
+		if _, err := os.Stat(p); err == nil {
 			return p, true
 		}
 		parent := filepath.Dir(dir)

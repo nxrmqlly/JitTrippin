@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -52,7 +53,7 @@ type PushEvent struct {
 	Before       string       `json:"before"`
 	After        string       `json:"after"`
 	Repository   Repository   `json:"repository"`
-	Sender       GHUser         `json:"sender"`
+	Sender       GHUser       `json:"sender"`
 	Installation Installation `json:"installation"`
 }
 
@@ -222,4 +223,98 @@ func (ro *Router) handleGithubRemove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func renderInstallPage(w http.ResponseWriter, title, msg string) {
+	w.Header().Add("Content-Type", "text/plain; charset=utf8")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "%s\n%s\n\n%s", title, strings.Repeat("-", len(title)), msg)
+}
+
+func (ro *Router) handleGithubInstallCallback(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+	if errMsg := params.Get("error"); errMsg != "" {
+		renderInstallPage(w, "Installation failed", errMsg)
+		return
+	}
+	action := params.Get("setup_action")
+	idstr := params.Get("installation_id")
+	if action != "install" || idstr == "" {
+		renderInstallPage(w, "No installation recorded", "No setup_action=install parameter was present.")
+		return
+	}
+	id, err := strconv.ParseInt(idstr, 10, 64)
+	if err != nil {
+		renderInstallPage(w, "Installation failed", "invalid installation_id")
+		return
+	}
+	if err := ro.gh.RecordInstall(r.Context(), id, action); err != nil {
+		renderInstallPage(w, "Installation failed", err.Error())
+		return
+	}
+	renderInstallPage(w, "JitTrippin installed", "GitHub App installed successfully. You can close this tab now.")
+}
+
+type installAcct struct {
+	ID          int64  `json:"id"`
+	Login       string `json:"login"`
+	AccountType string `json:"account_type"`
+}
+
+type githubInstallStatusResponse struct {
+	Installed  bool          `json:"installed"`
+	Accounts   []installAcct `json:"accounts"`
+	InstallURL string        `json:"install_url"`
+}
+
+func (ro *Router) handleGithubInstallStatus(w http.ResponseWriter, r *http.Request) {
+	usr, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+	token, err := ro.userGithubToken(r.Context(), usr.ID)
+	if err != nil {
+		httpx.ErrorJSON(w, http.StatusForbidden, "github not linked")
+		return
+	}
+	res, err := ro.gh.InstallStatus(r.Context(), token)
+	if err != nil {
+		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	resp := githubInstallStatusResponse{
+		Installed:  res.Installed,
+		InstallURL: res.InstallURL,
+	}
+	for _, a := range res.Accounts {
+		resp.Accounts = append(resp.Accounts, installAcct{ID: a.ID, Login: a.AccountLogin, AccountType: a.AccountType})
+	}
+	httpx.WriteJSON(w, http.StatusOK, resp)
+}
+
+type githubBranchesResponse struct {
+	Branches []string `json:"branches"`
+}
+
+func (ro *Router) handleGithubBranches(w http.ResponseWriter, r *http.Request) {
+	usr, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+	token, err := ro.userGithubToken(r.Context(), usr.ID)
+	if err != nil {
+		httpx.ErrorJSON(w, http.StatusForbidden, "github not linked")
+		return
+	}
+	fullName := r.PathValue("owner") + "/" + r.PathValue("name")
+	branches, err := ro.gh.ListBranches(r.Context(), token, fullName)
+	if err != nil {
+		if errors.Is(err, github.ErrInstallNotFound) {
+			httpx.ErrorJSON(w, http.StatusBadRequest, "app is not installed for this repository owner")
+			return
+		}
+		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, &githubBranchesResponse{Branches: branches})
 }

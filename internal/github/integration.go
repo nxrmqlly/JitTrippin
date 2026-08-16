@@ -98,7 +98,6 @@ func (i *Integration) SubmitPush(ctx context.Context, tracked store.TrackedRepos
 		statusCtx := "jittrippin/" + p.Name
 		target := i.pub + "/runs/" + run.ID()
 		if err := c.CreateCommitStatus(ctx, CreateCommitStatusConfig{
-			// owner, name, sha, "pending", statusCtx, "jittrippin: run started", target
 			Owner:     owner,
 			Name:      name,
 			SHA:       sha,

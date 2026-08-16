@@ -66,7 +66,9 @@ func (ro *Router) routes() {
 	ro.Handle("POST   /api/v1/integrations/github", ro.handleGithubAdd, ro.Authentication)
 	ro.Handle("GET    /api/v1/integrations/github/list", ro.handleGithubList, ro.Authentication)
 	ro.Handle("DELETE /api/v1/integrations/github", ro.handleGithubRemove, ro.Authentication)
-
+	ro.Handle("GET    /api/v1/integrations/github/install-callback", ro.handleGithubInstallCallback)
+	ro.Handle("GET    /api/v1/integrations/github/install-status", ro.handleGithubInstallStatus, ro.Authentication)
+	ro.Handle("GET    /api/v1/integrations/github/repos/{owner}/{name}/branches", ro.handleGithubBranches, ro.Authentication)
 }
 
 func (ro *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {

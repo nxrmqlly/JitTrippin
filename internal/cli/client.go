@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/urfave/cli/v3"
 )
 
 type apiErr struct {
@@ -119,4 +121,15 @@ func (c *daemonClient) ConnectGithub(fullName, branch string) error {
 		RepoFullName: fullName,
 		Branch:       branch,
 	}, nil)
+}
+
+func daemonURL(c *cli.Command) (string, error) {
+	if u := c.String("daemon"); u != "" {
+		return u, nil
+	}
+	cfg, err := loadCfg()
+	if err != nil {
+		return "", err
+	}
+	return cfg.Daemon, nil
 }

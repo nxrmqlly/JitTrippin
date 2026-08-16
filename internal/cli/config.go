@@ -9,7 +9,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-const defaultDaemon = "http://localhost:5500"
+const defaultDaemon = "https://jt.ritam.cc"
 
 type Config struct {
 	Daemon string `toml:"daemon"`
@@ -52,6 +52,7 @@ func saveCfg(cfg *Config) error {
 	}
 	var buf bytes.Buffer
 	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
-		return err	}
+		return err
+	}
 	return os.WriteFile(p, buf.Bytes(), 0o600)
 }

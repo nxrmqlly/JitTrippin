@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"path"
 	"strings"
@@ -123,6 +124,7 @@ func runError(w http.ResponseWriter, err error) {
 		httpx.ErrorJSON(w, http.StatusForbidden, "forbidden") // 403
 
 	default:
+		log.Printf("500: %s", err.Error())
 		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error") // 500
 	}
 }

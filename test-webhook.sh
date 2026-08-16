@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-URL="http://localhost:5500/api/v1/integrations/github/webhook"
+URL="http://jt.ritam.cc/api/v1/integrations/github/webhook"
 SECRET="${GITHUB_WEBHOOK_SECRET}"
 
 cat > /tmp/jtd-push.json <<'EOF'

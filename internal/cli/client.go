@@ -217,3 +217,19 @@ func (c *daemonClient) RemoveGithub(id string) error {
 		ID string `json:"id"`
 	}{ID: id}, nil)
 }
+
+type installableRepo struct {
+	ID            string `json:"id"`
+	FullName      string `json:"full_name"`
+	DefaultBranch string `json:"default_branch"`
+}
+
+func (c *daemonClient) InstallableRepos() ([]installableRepo, error) {
+	var out struct {
+		Repos []installableRepo `json:"repos"`
+	}
+	if err := c.do(http.MethodGet, "/api/v1/integrations/github/repos", nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Repos, nil
+}

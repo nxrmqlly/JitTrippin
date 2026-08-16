@@ -48,3 +48,11 @@ func MustUUIDV7() string {
 	return uuid.Must(uuid.NewV7()).String()
 }
 
+func ContainsS(items []string, s string) bool {
+	for _, it := range items {
+		if it == s {
+			return true
+		}
+	}
+	return false
+}

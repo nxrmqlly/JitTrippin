@@ -48,6 +48,23 @@ func cfgFileExists() bool {
 	return err == nil
 }
 
+func ensureSession(c *cli.Command) (*daemonClient, error) {
+	sess, err := loadSession()
+	if err != nil {
+		return nil, err
+	}
+	if sess == nil || sess.Token == "" {
+		return nil, errors.New("not logged in: run 'jt auth login' first")
+	}
+	base, err := ensureDaemonURL(c)
+	if err != nil {
+		return nil, err
+	}
+	client := newDaemonClient(base)
+	client.token = sess.Token
+	return client, nil
+}
+
 func ensureDaemonURL(c *cli.Command) (string, error) {
 	if u := c.String("daemon"); u != "" {
 		return strings.TrimRight(u, "/"), nil

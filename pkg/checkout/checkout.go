@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 )
 
 type Checkout struct {
@@ -14,11 +15,24 @@ type Checkout struct {
 	Password string `json:"-"`
 }
 
+// AuthURL generates the git repository URL for cloning with Username and Password added
+// to it.
+//
+//	Format:
+//	https://x-access-token:tok@github.com/nxrmqlly/JitTrippin.git
 func (c Checkout) AuthURL() (string, error) {
 	if c.Username == "" || c.Password == "" {
 		return c.URL, nil
 	}
-	u, err := url.Parse(c.URL)
+	raw := c.URL
+	if !strings.Contains(raw, "://") {
+		if i := strings.Index(raw, "@"); i > 0 {
+			if host, path, ok := strings.Cut(raw[i+1:], ":"); ok && host != "" && path != "" {
+				raw = "https://" + host + "/" + path
+			}
+		}
+	}
+	u, err := url.Parse(raw)
 	if err != nil {
 		return "", fmt.Errorf("cannot parse checkout url %q: %w", c.URL, err)
 	}

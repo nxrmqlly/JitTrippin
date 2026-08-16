@@ -20,9 +20,13 @@ const loginTimeout = 5 * time.Minute
 
 func CmdAuth() *cli.Command {
 	return &cli.Command{
-		Name:     "auth",
-		Usage:    "manage authentication to a jittrippin daemon",
-		Commands: []*cli.Command{},
+		Name:  "auth",
+		Usage: "manage authentication to a jittrippin daemon",
+		Commands: []*cli.Command{
+			CmdAuthLogin(),
+			CmdAuthLogout(),
+			CmdAuthStatus(),
+		},
 	}
 }
 

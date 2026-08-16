@@ -1,8 +1,5 @@
-# .jtrc
-# the configuration file for JitTrippin
-
 [project]
-name = "jittrippin"
+  name = "jittrippin"
 
 [pipelines]
-dir = ".jt/"
+  dir = ".jt"

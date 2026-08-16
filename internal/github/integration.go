@@ -231,3 +231,28 @@ func (i *Integration) ListBranches(ctx context.Context, userToken, fullName stri
 	}
 	return c.ListBranches(ctx, owner, name)
 }
+
+func (i *Integration) ListInstallableRepos(ctx context.Context, userToken string) ([]Repository, error) {
+	cu, err := forUser(userToken)
+	if err != nil {
+		return nil, err
+	}
+	installs, err := cu.ListUserInstallations(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []Repository
+	for _, inst := range installs {
+		ts := i.srcs.Get(inst.ID, i.appTS)
+		c, err := forInstallation(ts)
+		if err != nil {
+			continue
+		}
+		repos, err := c.ListInstallationRepos(ctx)
+		if err != nil {
+			continue
+		}
+		out = append(out, repos...)
+	}
+	return out, nil
+}

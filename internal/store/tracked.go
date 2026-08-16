@@ -10,19 +10,19 @@ import (
 )
 
 type TrackedRepository struct {
-	ID                   string
-	OwnerID              string
-	Provider             string
-	ProviderInstance     string
-	ProviderRepositoryID string
-	FullName             string
-	Branch               string
-	CreatedAt            time.Time
+	ID                   string    `json:"id"`
+	OwnerID              string    `json:"owner_id"`
+	Provider             string    `json:"provider"`
+	ProviderInstance     string    `json:"provider_instance"`
+	ProviderRepositoryID string    `json:"provider_repository_id"`
+	FullName             string    `json:"full_name"`
+	Branch               string    `json:"branch"`
+	CreatedAt            time.Time `json:"created_at"`
 }
 
 func (s *Store) CreateTrackedRepository(ctx context.Context, repo *TrackedRepository) error {
 	_, err := s.pool.Exec(ctx, `
-        INSERT INTO tracked_repositories 
+        INSERT INTO tracked_repositories
 		(id, owner_id, provider, provider_instance, provider_repository_id, full_name, branch)
         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		repo.ID, repo.OwnerID, repo.Provider, repo.ProviderInstance, repo.ProviderRepositoryID, repo.FullName, repo.Branch,

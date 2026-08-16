@@ -318,3 +318,40 @@ func (ro *Router) handleGithubBranches(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.WriteJSON(w, http.StatusOK, &githubBranchesResponse{Branches: branches})
 }
+
+type githubReposResponse struct {
+	Repos []repositoryResponse `json:"repos"`
+}
+
+type repositoryResponse struct {
+	ID            string `json:"id"`
+	FullName      string `json:"full_name"`
+	DefaultBranch string `json:"default_branch"`
+}
+
+func (ro *Router) handleGithubRepos(w http.ResponseWriter, r *http.Request) {
+	usr, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+	token, err := ro.userGithubToken(r.Context(), usr.ID)
+	if err != nil {
+		httpx.ErrorJSON(w, http.StatusForbidden, "github not linked")
+		return
+	}
+	repos, err := ro.gh.ListInstallableRepos(r.Context(), token)
+	if err != nil {
+		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	var resp githubReposResponse
+	for _, rp := range repos {
+		resp.Repos = append(resp.Repos, repositoryResponse{
+			ID:            rp.ID,
+			FullName:      rp.FullName,
+			DefaultBranch: rp.DefaultBranch,
+		})
+	}
+	httpx.WriteJSON(w, http.StatusOK, resp)
+}
+

@@ -167,3 +167,53 @@ func (c *daemonClient) Me() (*meResult, error) {
 func (c *daemonClient) RemoveIntegration(provider string) error {
 	return c.do(http.MethodDelete, "/api/v1/auth/"+provider, nil, nil)
 }
+
+type installAcct struct {
+	ID          int64  `json:"id"`
+	Login       string `json:"login"`
+	AccountType string `json:"account_type"`
+}
+
+type installStatus struct {
+	Installed  bool          `json:"installed"`
+	Accounts   []installAcct `json:"accounts"`
+	InstallURL string        `json:"install_url"`
+}
+
+func (c *daemonClient) InstallStatus() (*installStatus, error) {
+	var out installStatus
+	if err := c.do(http.MethodGet, "/api/v1/integrations/github/install-status", nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *daemonClient) ListBranches(fullName string) ([]string, error) {
+	var out struct {
+		Branches []string `json:"branches"`
+	}
+	if err := c.do(http.MethodGet, "/api/v1/integrations/github/repos/"+fullName+"/branches", nil, &out); err != nil {
+		return nil, err
+	}
+	return out.Branches, nil
+}
+
+type trackedRepo struct {
+	ID       string `json:"id"`
+	FullName string `json:"full_name"`
+	Branch   string `json:"branch"`
+}
+
+func (c *daemonClient) TrackedRepos() ([]trackedRepo, error) {
+	var out []trackedRepo
+	if err := c.do(http.MethodGet, "/api/v1/integrations/github/list", nil, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *daemonClient) RemoveGithub(id string) error {
+	return c.do(http.MethodDelete, "/api/v1/integrations/github", struct {
+		ID string `json:"id"`
+	}{ID: id}, nil)
+}

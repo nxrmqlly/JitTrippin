@@ -199,3 +199,26 @@ func (c *Client) ListBranches(ctx context.Context, owner, name string) ([]string
 	}
 	return branches, nil
 }
+
+func (c *Client) ListInstallationRepos(ctx context.Context) ([]Repository, error) {
+	opts := &gh.ListOptions{PerPage: 100}
+	var out []Repository
+	for {
+		repos, resp, err := c.client.Apps.ListRepos(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range repos.Repositories {
+			out = append(out, Repository{
+				ID:            strconv.FormatInt(r.GetID(), 10),
+				FullName:      r.GetFullName(),
+				DefaultBranch: r.GetDefaultBranch(),
+			})
+		}
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+	return out, nil
+}

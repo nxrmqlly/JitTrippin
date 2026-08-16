@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"charm.land/huh/v2"
+	"github.com/nxrmqlly/jittrippin/internal/config"
 	"github.com/urfave/cli/v3"
 )
 
@@ -62,12 +63,12 @@ func handleDaemon(ctx context.Context, c *cli.Command) error {
 				return err
 			}
 		}
-		cfg, err := loadCfg()
+		cfg, err := config.LoadUserConfig()
 		if err != nil {
 			return err
 		}
 		cfg.Daemon = set
-		if err := saveCfg(cfg); err != nil {
+		if err := config.SaveUserConfig(cfg); err != nil {
 			return err
 		}
 		fmt.Printf("Daemon set to %s\n", set)

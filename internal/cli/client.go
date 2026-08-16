@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nxrmqlly/jittrippin/internal/config"
 	"github.com/urfave/cli/v3"
 )
 
@@ -127,7 +128,7 @@ func daemonURL(c *cli.Command) (string, error) {
 	if u := c.String("daemon"); u != "" {
 		return u, nil
 	}
-	cfg, err := loadCfg()
+	cfg, err := config.LoadUserConfig()
 	if err != nil {
 		return "", err
 	}

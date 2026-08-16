@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"os"
 
 	"github.com/BurntSushi/toml"
@@ -32,4 +33,13 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 	return Parse(b)
+}
+
+// Save encodes cfg to TOML and writes it to path.
+func Save(path string, cfg *Config) error {
+	var buf bytes.Buffer
+	if err := toml.NewEncoder(&buf).Encode(cfg); err != nil {
+		return err
+	}
+	return os.WriteFile(path, buf.Bytes(), 0o600)
 }

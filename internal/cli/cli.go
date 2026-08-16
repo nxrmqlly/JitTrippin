@@ -15,6 +15,7 @@ func New() *cli.Command {
 			return nil
 		},
 		Commands: []*cli.Command{
+			CmdInit(),
 			CmdRun(),
 			CmdValidate(),
 			CmdAuth(),

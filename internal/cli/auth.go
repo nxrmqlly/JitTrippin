@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"charm.land/huh/v2"
+	"github.com/nxrmqlly/jittrippin/internal/config"
 	"github.com/urfave/cli/v3"
 )
 
@@ -40,7 +41,7 @@ func CmdAuthLogin() *cli.Command {
 }
 
 func cfgFileExists() bool {
-	p, err := cfgPath()
+	p, err := config.UserConfigPath()
 	if err != nil {
 		return false
 	}
@@ -69,19 +70,19 @@ func ensureDaemonURL(c *cli.Command) (string, error) {
 	if u := c.String("daemon"); u != "" {
 		return strings.TrimRight(u, "/"), nil
 	}
-	cfg, err := loadCfg()
+	cfg, err := config.LoadUserConfig()
 	if err != nil {
 		return "", err
 	}
 	if cfgFileExists() {
 		return cfg.Daemon, nil
 	}
-	u := defaultDaemon
+	u := config.DefaultDaemon
 	if err := huh.NewInput().Title("Daemon URL").Value(&u).Run(); err != nil {
 		return "", err
 	}
 	cfg.Daemon = strings.TrimRight(u, "/")
-	if err := saveCfg(cfg); err != nil {
+	if err := config.SaveUserConfig(cfg); err != nil {
 		return "", err
 	}
 	return cfg.Daemon, nil

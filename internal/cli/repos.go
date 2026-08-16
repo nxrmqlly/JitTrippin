@@ -14,8 +14,8 @@ import (
 
 func CmdRepos() *cli.Command {
 	return &cli.Command{
-		Name:        "repos",
-		Description: "track GitHub repositories",
+		Name:  "repos",
+		Usage: "track repositories",
 		Commands: []*cli.Command{
 			CmdReposAdd(),
 		},
@@ -24,9 +24,9 @@ func CmdRepos() *cli.Command {
 
 func CmdReposAdd() *cli.Command {
 	return &cli.Command{
-		Name:        "add",
-		Description: "track a repository",
-		Action:      handleReposAdd,
+		Name:   "add",
+		Usage:  "track a repository",
+		Action: handleReposAdd,
 	}
 }
 

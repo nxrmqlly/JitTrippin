@@ -9,7 +9,7 @@ import (
 )
 
 type LocalStore struct {
-	Root      string
+	Root string
 }
 
 func (s *LocalStore) path(r Ref) string {

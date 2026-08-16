@@ -203,7 +203,7 @@ func (e *Executor) worker() {
 		}
 
 		jl, err := e.LogsStore.Open(work.pe.ctx, lref)
-		
+
 		if err != nil {
 			work.pe.results <- JobResult{
 				job: work.job,

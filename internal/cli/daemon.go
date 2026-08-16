@@ -13,10 +13,10 @@ import (
 
 func CmdPing() *cli.Command {
 	return &cli.Command{
-		Name:        "ping",
-		Description: "check that the daemon is reachable",
-		Flags:       []cli.Flag{&cli.StringFlag{Name: "daemon", Usage: "daemon base URL (default: from user config)"}},
-		Action:      handlePing,
+		Name:   "ping",
+		Usage:  "check that the daemon is reachable",
+		Flags:  []cli.Flag{&cli.StringFlag{Name: "daemon", Usage: "daemon base URL (default: from user config)"}},
+		Action: handlePing,
 	}
 }
 
@@ -36,10 +36,10 @@ func handlePing(ctx context.Context, c *cli.Command) error {
 
 func CmdDaemon() *cli.Command {
 	return &cli.Command{
-		Name:        "daemon",
-		Description: "show or set the daemon URL",
-		Flags:       []cli.Flag{&cli.StringFlag{Name: "set", Usage: "set a new daemon URL"}},
-		Action:      handleDaemon,
+		Name:   "daemon",
+		Usage:  "show or set the daemon URL",
+		Flags:  []cli.Flag{&cli.StringFlag{Name: "set", Usage: "set a new daemon URL"}},
+		Action: handleDaemon,
 	}
 }
 

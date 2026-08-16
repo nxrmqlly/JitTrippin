@@ -104,7 +104,7 @@ func main() {
 		PrivateKey: os.Getenv("GITHUB_PRIVATE_KEY_PATH"),
 		PublicURL:  os.Getenv("JTD_PUBLIC_URL"),
 	}, st, mgr)
-	
+
 	if err != nil {
 		log.Fatal(err)
 	}

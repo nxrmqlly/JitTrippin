@@ -28,8 +28,8 @@ func CmdAuth() *cli.Command {
 
 func CmdAuthLogin() *cli.Command {
 	return &cli.Command{
-		Name:        "login",
-		Description: "log in to a jittrippin daemon",
+		Name:  "login",
+		Usage: "log in to a jittrippin daemon",
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "provider", Usage: "OAuth provider (default: first advertised by the daemon)"},
 			&cli.StringFlag{Name: "daemon", Usage: "daemon base URL (default: from user config)"},
@@ -199,9 +199,9 @@ func openBrowser(url string) error {
 
 func CmdAuthLogout() *cli.Command {
 	return &cli.Command{
-		Name:        "logout",
-		Description: "log out of the current jittrippin daemon",
-		Action:      handleAuthLogout,
+		Name:   "logout",
+		Usage:  "log out of the current jittrippin daemon",
+		Action: handleAuthLogout,
 	}
 }
 
@@ -227,10 +227,10 @@ func handleAuthLogout(ctx context.Context, c *cli.Command) error {
 
 func CmdAuthStatus() *cli.Command {
 	return &cli.Command{
-		Name:        "status",
-		Description: "show login status and linked integrations",
-		Flags:       []cli.Flag{&cli.StringFlag{Name: "daemon", Usage: "daemon base URL (default: from user config)"}},
-		Action:      handleAuthStatus,
+		Name:   "status",
+		Usage:  "show login status and linked integrations",
+		Flags:  []cli.Flag{&cli.StringFlag{Name: "daemon", Usage: "daemon base URL (default: from user config)"}},
+		Action: handleAuthStatus,
 	}
 }
 

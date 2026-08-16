@@ -42,5 +42,3 @@ func (c *installTokenSourceCache) Get(installID int64, appTS oauth2.TokenSource)
 	}
 	return ts
 }
-
-

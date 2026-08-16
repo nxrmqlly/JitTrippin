@@ -69,7 +69,7 @@ func (m *Manager) ListTrackedRepositoriesByOwner(userID string) ([]*store.Tracke
 }
 
 func (m *Manager) GetTrackedRepositoryByID(id string) (*store.TrackedRepository, error) {
-	return m.store.GetTrackedRepositoryByID(m.ctx, id)	
+	return m.store.GetTrackedRepositoryByID(m.ctx, id)
 }
 
 func (m *Manager) DeleteTrackedRepository(id string) error {

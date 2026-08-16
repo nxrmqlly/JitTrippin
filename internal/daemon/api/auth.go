@@ -110,3 +110,63 @@ func (ro *Router) handleAuthLogout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 	w.Write(nil)
 }
+
+func (ro *Router) handleAuthProviders(w http.ResponseWriter, r *http.Request) {
+	httpx.WriteJSON(w, http.StatusOK, struct {
+		Providers []string `json:"providers"`
+	}{Providers: ro.auth.ProviderNames()})
+}
+
+type meResponse struct {
+	User       userResponse       `json:"user"`
+	Identities []identityResponse `json:"identities"`
+}
+
+type userResponse struct {
+	ID    string  `json:"id"`
+	Name  string  `json:"name"`
+	Email *string `json:"email,omitempty"`
+}
+
+type identityResponse struct {
+	Provider string `json:"provider"`
+	Login    string `json:"login,omitempty"`
+}
+
+func (ro *Router) handleAuthMe(w http.ResponseWriter, r *http.Request) {
+	usr, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+	me, err := ro.auth.Me(r.Context(), usr.ID)
+	if err != nil {
+		httpx.ErrorJSON(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+	resp := meResponse{
+		User: userResponse{
+			ID:    me.User.ID,
+			Name:  me.User.DisplayName,
+			Email: me.User.Email,
+		},
+	}
+	for _, id := range me.Identities {
+		resp.Identities = append(resp.Identities, identityResponse{
+			Provider: id.Provider,
+			Login:    id.ProviderLogin,
+		})
+	}
+	httpx.WriteJSON(w, http.StatusOK, resp)
+}
+
+func (ro *Router) handleIntegrationRemove(w http.ResponseWriter, r *http.Request) {
+	usr, ok := currentUser(w, r)
+	if !ok {
+		return
+	}
+	if err := ro.auth.Unlink(r.Context(), usr.ID, r.PathValue("provider")); err != nil {
+		httpx.ErrorJSON(w, http.StatusNotFound, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -40,7 +40,7 @@ func New(mgr *daemon.Manager, auth *auth.Service, gh *github.Integration) *Route
 func (ro *Router) routes() {
 	ro.GlobalMws = append(ro.GlobalMws, ro.Logging)
 
-	ro.Handle("GET /api/v1/health", ro.handleHealth)
+	ro.Handle("GET    /api/v1/health", ro.handleHealth)
 
 	ro.Handle("GET    /api/v1/runs/{id}", ro.handleRunGet, ro.Authentication)
 	ro.Handle("GET    /api/v1/runs", ro.handleRunList, ro.Authentication)
@@ -58,6 +58,9 @@ func (ro *Router) routes() {
 	ro.Handle("GET    /api/v1/auth/{provider}/callback", ro.handleAuthCallback)
 	ro.Handle("POST   /api/v1/auth/exchange", ro.handleAuthExchange)
 	ro.Handle("POST   /api/v1/auth/logout", ro.handleAuthLogout)
+	ro.Handle("GET    /api/v1/auth/providers", ro.handleAuthProviders)
+	ro.Handle("DELETE /api/v1/auth/{provider}", ro.handleIntegrationRemove, ro.Authentication)
+	ro.Handle("GET    /api/v1/auth/me", ro.handleAuthMe, ro.Authentication)
 
 	ro.Handle("POST   /api/v1/integrations/github/webhook", ro.handleGithubWebhook)
 	ro.Handle("POST   /api/v1/integrations/github", ro.handleGithubAdd, ro.Authentication)

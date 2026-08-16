@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"log"
+	"strconv"
 	"strings"
 
+	gh "github.com/google/go-github/v90/github"
 	"github.com/nxrmqlly/jittrippin/internal/daemon"
 	"github.com/nxrmqlly/jittrippin/internal/store"
 	"golang.org/x/oauth2"
@@ -20,12 +22,14 @@ type Integration struct {
 	mgr   *daemon.Manager
 	srcs  *installTokenSourceCache
 	pub   string
+	slug  string
 }
 
 type Config struct {
 	AppID      string
 	PrivateKey string
 	PublicURL  string
+	AppSlug    string
 }
 
 func New(cfg Config, st *store.Store, mgr *daemon.Manager) (*Integration, error) {
@@ -39,7 +43,21 @@ func New(cfg Config, st *store.Store, mgr *daemon.Manager) (*Integration, error)
 		mgr:   mgr,
 		srcs:  newInstallTokenSourceCache(),
 		pub:   cfg.PublicURL,
+		slug:  cfg.AppSlug,
 	}, nil
+}
+
+func (i *Integration) installForOwner(ctx context.Context, cu *Client, owner string) (int64, error) {
+	installs, err := cu.ListUserInstallations(ctx)
+	if err != nil {
+		return 0, err
+	}
+	for _, inst := range installs {
+		if inst.AccountLogin == owner {
+			return inst.ID, nil
+		}
+	}
+	return 0, ErrInstallNotFound
 }
 
 func (i *Integration) SubmitPush(ctx context.Context, tracked store.TrackedRepository, sha string, installID int64) ([]*daemon.Run, error) {
@@ -123,24 +141,11 @@ func (i *Integration) TrackRepository(ctx context.Context, userToken, ownerID, f
 	if err != nil {
 		return err
 	}
-	installs, err := cu.ListUserInstallations(ctx)
-	if err != nil {
-		return err
-	}
 
 	owner, name, _ := strings.Cut(fullName, "/")
-
-	var installID int64
-	// try to find user's install
-	for _, inst := range installs {
-		if inst.AccountLogin == owner {
-			installID = inst.ID
-			break
-		}
-	}
-	// wasnt changed, so not found
-	if installID == 0 {
-		return ErrInstallNotFound
+	installID, err := i.installForOwner(ctx, cu, owner)
+	if err != nil {
+		return err
 	}
 
 	ts := i.srcs.Get(installID, i.appTS)
@@ -162,4 +167,68 @@ func (i *Integration) TrackRepository(ctx context.Context, userToken, ownerID, f
 		FullName:             repo.FullName,
 		Branch:               branch,
 	})
+}
+
+func (i *Integration) RecordInstall(ctx context.Context, installID int64, setupAction string) error {
+	httpC := oauth2.NewClient(ctx, i.appTS)
+	c, err := gh.NewClient(gh.WithHTTPClient(httpC))
+	if err != nil {
+		return err
+	}
+	inst, _, err := c.Apps.GetInstallation(ctx, installID)
+	if err != nil {
+		return err
+	}
+	rec := &store.Installation{
+		ID:               strconv.FormatInt(installID, 10),
+		Provider:         "github",
+		ProviderInstance: "github.com",
+		SetupAction:      setupAction,
+	}
+	if a := inst.GetAccount(); a != nil {
+		rec.AccountLogin = a.GetLogin()
+		rec.AccountType = a.GetType()
+	}
+	return i.st.UpsertInstallation(ctx, rec)
+}
+
+type InstallStatusResult struct {
+	Installed  bool
+	Accounts   []Installation
+	InstallURL string
+}
+
+func (i *Integration) InstallStatus(ctx context.Context, userToken string) (InstallStatusResult, error) {
+	cu, err := forUser(userToken)
+	if err != nil {
+		return InstallStatusResult{}, err
+	}
+	installs, err := cu.ListUserInstallations(ctx)
+	if err != nil {
+		return InstallStatusResult{}, err
+	}
+	return InstallStatusResult{
+		Installed:  len(installs) > 0,
+		Accounts:   installs,
+		InstallURL: "https://github.com/apps/" + i.slug + "/installations/new",
+	}, nil
+}
+
+func (i *Integration) ListBranches(ctx context.Context, userToken, fullName string) ([]string, error) {
+	owner, name, _ := strings.Cut(fullName, "/")
+
+	cu, err := forUser(userToken)
+	if err != nil {
+		return nil, err
+	}
+	installID, err := i.installForOwner(ctx, cu, owner)
+	if err != nil {
+		return nil, err
+	}
+	ts := i.srcs.Get(installID, i.appTS)
+	c, err := forInstallation(ts)
+	if err != nil {
+		return nil, err
+	}
+	return c.ListBranches(ctx, owner, name)
 }

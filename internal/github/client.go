@@ -15,6 +15,12 @@ import (
 
 const defaultPipelineDir = ".jt"
 
+type Installation struct {
+	ID           int64
+	AccountLogin string
+	AccountType  string
+}
+
 type Client struct {
 	client *gh.Client
 }
@@ -104,11 +110,6 @@ func (c *Client) CreateCommitStatus(ctx context.Context, cfg CreateCommitStatusC
 	return err
 }
 
-type Installation struct {
-	ID           int64
-	AccountLogin string
-}
-
 func (c *Client) ListUserInstallations(ctx context.Context) ([]Installation, error) {
 	ins, _, err := c.client.Apps.ListUserInstallations(ctx, nil)
 	if err != nil {
@@ -117,10 +118,12 @@ func (c *Client) ListUserInstallations(ctx context.Context) ([]Installation, err
 	var out []Installation
 	for _, i := range ins {
 		login := ""
+		typ := ""
 		if a := i.GetAccount(); a != nil {
 			login = a.GetLogin()
+			typ = a.GetType()
 		}
-		out = append(out, Installation{ID: i.GetID(), AccountLogin: login})
+		out = append(out, Installation{ID: i.GetID(), AccountLogin: login, AccountType: typ})
 	}
 	return out, nil
 }
@@ -161,4 +164,38 @@ func LoadPipelinesAtSHA(ctx context.Context, c *Client, owner, name, sha string)
 		pipelines = append(pipelines, p)
 	}
 	return pipelines, nil
+}
+
+func (c *Client) GetInstallation(ctx context.Context, id int64) (*Installation, error) {
+	inst, _, err := c.client.Apps.GetInstallation(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	out := &Installation{ID: inst.GetID()}
+	if a := inst.GetAccount(); a != nil {
+		out.AccountLogin = a.GetLogin()
+		out.AccountType = a.GetType()
+	}
+	return out, nil
+}
+
+func (c *Client) ListBranches(ctx context.Context, owner, name string) ([]string, error) {
+	var branches []string
+	opts := &gh.BranchListOptions{ListOptions: gh.ListOptions{
+		PerPage: 100,
+	}}
+	for {
+		bs, resp, err := c.client.Repositories.ListBranches(ctx, owner, name, opts)
+		if err != nil {
+			return nil, err
+		}
+		for _, b := range bs {
+			branches = append(branches, b.GetName())
+		}
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+	return branches, nil
 }

@@ -52,7 +52,7 @@ type PushEvent struct {
 	Before       string       `json:"before"`
 	After        string       `json:"after"`
 	Repository   Repository   `json:"repository"`
-	Sender       User         `json:"sender"`
+	Sender       GHUser         `json:"sender"`
 	Installation Installation `json:"installation"`
 }
 
@@ -63,7 +63,7 @@ type Repository struct {
 	DefaultBranch string `json:"default_branch"`
 }
 
-type User struct {
+type GHUser struct {
 	Login string `json:"login"`
 }
 

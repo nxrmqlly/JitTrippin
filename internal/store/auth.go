@@ -300,6 +300,20 @@ func (s *Store) UpdateIdentityTokens(ctx context.Context, provider, providerUser
 	return nil
 }
 
+func (s *Store) RemoveIdentity(ctx context.Context, userID, provider string) error {
+	tag, err := s.pool.Exec(ctx, `
+		DELETE FROM user_identities
+		WHERE user_id = $1 AND provider = $2
+	`, userID, provider)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrIdentityNotFound
+	}
+	return nil
+}
+
 // CreateSession creates a sessions database entry.
 // CreatedAt timestamp is managed by database.
 //

@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/nxrmqlly/jittrippin/helpers"
@@ -94,6 +95,15 @@ type BeginResult struct {
 	URL string
 }
 
+func (s *Service) ProviderNames() []string {
+	names := make([]string, 0, len(s.providers))
+	for name := range s.providers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 func (s *Service) Begin(ctx context.Context, opts BeginOptions) (BeginResult, error) {
 	pro, ok := s.providers[opts.Provider]
 	if !ok {
@@ -160,7 +170,9 @@ func (s *Service) Callback(ctx context.Context, opts CallbackOptions) (CallbackR
 			expiry = &identity.OAuthToken.Expiry
 		}
 	}
-	if err := s.store.UpdateIdentityTokens(ctx, pro.Name(), identity.ProviderID, accessToken, refreshToken, expiry); err != nil {
+	if err := s.store.UpdateIdentityTokens(
+		ctx, pro.Name(), identity.ProviderID, accessToken, refreshToken, expiry,
+	); err != nil {
 		return CallbackResult{}, err
 	}
 
@@ -295,4 +307,25 @@ func (s *Service) Token(ctx context.Context, userID, provider string) (*oauth2.T
 		return nil, err
 	}
 	return nt, err
+}
+
+type MeResult struct {
+	User       *store.User
+	Identities []store.UserIdentity
+}
+
+func (s *Service) Me(ctx context.Context, userID string) (*MeResult, error) {
+	u, err := s.store.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	ids, err := s.store.GetUserIdentities(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return &MeResult{User: u, Identities: ids}, nil
+}
+
+func (s *Service) Unlink(ctx context.Context, userID, provider string) error {
+	return s.store.RemoveIdentity(ctx, userID, provider)
 }

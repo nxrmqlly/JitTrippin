@@ -5,6 +5,7 @@ CI/CD Engine for the average monkeybrain. minus YAML.
 
 JitTrippin is designed to but plug and play with whatever environment you please.
 It's designed to not lock you down into using only docker, or S3.
+
 - You can choose the enviroment you run your pipelines. (ie. Docker, Podman, MicroVM etc.)
 - You can choose whatever Storage method you want to use for your artifacts. (ie. Disk, S3 etc.)
 
@@ -14,7 +15,7 @@ JitTrippin is in very early development. We have Docker + Disk Storage (for arti
 ## Compatibility
 
 JitTrippin is designed for unix-like systems (Linux, MacOS) primarily. Windows support is untested.
-No support is provided for broken JT on Windows machines. 
+No support is provided for broken JT on Windows machines.
 
 JT also assumes that Pipelines will run in Linux containers. Support for Windows containers is
 best-effort.
@@ -30,7 +31,8 @@ best-effort.
 - [x] Live Stderr/Stdout
 - [x] Runner Core
 - [x] Artifacts Core
-- [X] Checkout Core
+- [x] Checkout Core
+- [x] Integrations: Generalization
 - [ ] Integrations: Github Integration!
 - [ ] CLI (🔄️ In progress)
 - [ ] CLI: Pretty printing
@@ -39,7 +41,10 @@ best-effort.
 - [x] API: Logs Streaming
 - [x] API: Per Pipeline Visibility
 - [x] API: HTTP Error Handling
-- [x] API: Authorization 
+- [x] API: Authorization
+
+## Roadmap till v0.2
+
 - [ ] Engine: Cache
 - [ ] Engine: Secrets
 - [ ] Engine: Annotated Logs

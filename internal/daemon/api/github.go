@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -144,12 +144,27 @@ func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 		return
 	case "release":
+		slog.Debug("github: webhook: received release event")
+
 		var event ReleaseEvent
 		if err := json.Unmarshal(body, &event); err != nil {
+			slog.Error("github: webhook: release: failed to unmarshal", "err", err)
 			httpx.ErrorJSON(w, http.StatusInternalServerError, "error decoding json")
 			return
 		}
+
+		slog.Debug("github: webhook: release: parsed",
+			"action", event.Action,
+			"tag", event.Release.TagName,
+			"release_id", event.Release.ID,
+			"draft", event.Release.Draft,
+			"repo_id", event.Repository.ID,
+			"repo_name", event.Repository.FullName,
+			"install_id", event.Installation.ID,
+		)
+
 		if event.Release.Draft {
+			slog.Debug("github: webhook: release: skipping draft")
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -159,14 +174,18 @@ func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 			strconv.FormatInt(event.Repository.ID, 10),
 		)
 		if err != nil {
+			slog.Error("github: webhook: release: failed to list tracked repos", "err", err)
 			httpx.InternalServerError(w, err)
 			return
 		}
 		if len(tracked) == 0 {
+			slog.Warn("github: webhook: release: no tracked repo found", "repo_id", event.Repository.ID)
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		slog.Info("github: webhook: release: submitting", "tracked_count", len(tracked), "action", event.Action, "tag", event.Release.TagName)
 		for _, t := range tracked {
+			slog.Debug("github: webhook: release: spawning submitRelease", "repo", t.FullName, "branch", t.Branch, "owner", t.OwnerID)
 			go ro.submitRelease(ro.mgr.Context(), *t, event.Action,
 				event.Release.TagName, event.Release.ID, event.Installation.ID)
 		}
@@ -180,15 +199,16 @@ func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 
 func (ro *Router) submitPush(ctx context.Context, tracked store.TrackedRepository, ref, sha string, installID int64) {
 	if _, err := ro.gh.SubmitPush(ctx, tracked, ref, sha, installID); err != nil {
-		log.Printf("github: push submit failed: repo=%s ref=%s: %v", tracked.ID, ref, err)
+		slog.Error("github: push submit failed", "repo", tracked.FullName, "ref", ref, "err", err)
 	}
 }
 
 func (ro *Router) submitRelease(ctx context.Context, tracked store.TrackedRepository, action, tag string, releaseID, installID int64) {
+	slog.Info("github: submitRelease: starting", "repo", tracked.FullName, "tag", tag, "action", action, "release_id", releaseID, "install_id", installID)
 	if _, err := ro.gh.SubmitRelease(ctx, tracked, installID, github.ReleaseInfo{
 		Action: action, Tag: tag, ReleaseID: releaseID,
 	}); err != nil {
-		log.Printf("github: release submit failed: repo=%s tag=%s: %v", tracked.ID, tag, err)
+		slog.Error("github: submitRelease: failed", "repo", tracked.FullName, "tag", tag, "err", err)
 	}
 }
 

@@ -1,0 +1,29 @@
+{
+    "name": "Release Upload",
+    "description": "Minimal release pipeline: produces a single artifact and uploads it as a release asset",
+    "visibility": "public",
+    "github": {
+        "push": { "branches": ["master", "main"] },
+        "release": {
+            "on": "created",
+            "artifacts": [
+                { "job": "build", "name": "hello", "as": "hello.txt" }
+            ]
+        }
+    },
+    "jobs": [
+        {
+            "name": "build",
+            "image": "alpine:latest",
+            "steps": [
+                {
+                    "name": "produce",
+                    "cmd": "echo 'hello from release v$(date +%s)' > hello.txt && cat hello.txt"
+                }
+            ],
+            "artifacts": [
+                { "name": "hello", "path": "hello.txt" }
+            ]
+        }
+    ]
+}

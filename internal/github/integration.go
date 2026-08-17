@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"path"
 	"strconv"
@@ -119,7 +119,7 @@ func (i *Integration) SubmitPush(ctx context.Context, tracked store.TrackedRepos
 			Desc:      "jittrippin: run started",
 			TargetURL: target,
 		}); err != nil {
-			log.Printf("github: pending status failed: %v", err)
+			slog.Error("github: SubmitPush: pending status failed", "err", err)
 		}
 		go i.reportCompletion(ctx, c, owner, name, sha, p.Name, run, target)
 	}
@@ -135,13 +135,17 @@ type ReleaseInfo struct {
 const defaultReleaseOn = "published"
 
 func (i *Integration) SubmitRelease(ctx context.Context, tracked store.TrackedRepository, installID int64, info ReleaseInfo) ([]*daemon.Run, error) {
+	slog.Info("github: SubmitRelease: starting", "repo", tracked.FullName, "tag", info.Tag, "action", info.Action, "release_id", info.ReleaseID, "install_id", installID)
+
 	ts := i.srcs.Get(installID, i.appTS)
 	c, err := forInstallation(ts)
 	if err != nil {
+		slog.Error("github: SubmitRelease: forInstallation failed", "err", err)
 		return nil, err
 	}
 	tok, err := ts.Token()
 	if err != nil {
+		slog.Error("github: SubmitRelease: token fetch failed", "err", err)
 		return nil, err
 	}
 	parts := strings.SplitN(tracked.FullName, "/", 2)
@@ -152,17 +156,23 @@ func (i *Integration) SubmitRelease(ctx context.Context, tracked store.TrackedRe
 
 	sha, err := c.ResolveTagSHA(ctx, owner, name, info.Tag)
 	if err != nil {
+		slog.Error("github: SubmitRelease: ResolveTagSHA failed", "tag", info.Tag, "err", err)
 		return nil, err
 	}
+	slog.Info("github: SubmitRelease: resolved tag", "tag", info.Tag, "sha", sha)
+
 	pipelines, err := LoadPipelinesAtSHA(ctx, c, owner, name, sha)
 	if err != nil {
+		slog.Error("github: SubmitRelease: LoadPipelinesAtSHA failed", "sha", sha, "err", err)
 		return nil, err
 	}
+	slog.Info("github: SubmitRelease: loaded pipelines", "count", len(pipelines), "sha", sha)
 
 	var runs []*daemon.Run
 	for _, p := range pipelines {
 		rel := releaseConfig(p)
 		if rel == nil {
+			slog.Debug("github: SubmitRelease: skipping pipeline (no release config)", "pipeline", p.Name)
 			continue
 		}
 		on := rel.On
@@ -170,8 +180,10 @@ func (i *Integration) SubmitRelease(ctx context.Context, tracked store.TrackedRe
 			on = defaultReleaseOn
 		}
 		if on != info.Action {
+			slog.Debug("github: SubmitRelease: skipping pipeline (action mismatch)", "pipeline", p.Name, "pipeline_on", on, "event_action", info.Action)
 			continue
 		}
+		slog.Info("github: SubmitRelease: running pipeline", "pipeline", p.Name, "on", on)
 		p.Checkout.URL = "https://github.com/" + tracked.FullName + ".git"
 		p.Checkout.Ref = sha
 		p.Checkout.Username = "x-access-token"
@@ -179,26 +191,32 @@ func (i *Integration) SubmitRelease(ctx context.Context, tracked store.TrackedRe
 
 		run, err := i.mgr.Submit(tracked.OwnerID, p)
 		if err != nil {
+			slog.Error("github: SubmitRelease: mgr.Submit failed", "pipeline", p.Name, "err", err)
 			return runs, err
 		}
 		runs = append(runs, run)
 
 		statusCtx := "jittrippin/" + p.Name
 		target := i.pub + "/runs/" + run.ID()
+		slog.Info("github: SubmitRelease: run submitted", "pipeline", p.Name, "run_id", run.ID(), "target", target)
 		if err := c.CreateCommitStatus(ctx, CreateCommitStatusConfig{
 			Owner: owner, Name: name, SHA: sha, State: "pending",
 			Context: statusCtx, Desc: "jittrippin: release run started", TargetURL: target,
 		}); err != nil {
-			log.Printf("github: pending status failed: %v", err)
+			slog.Error("github: SubmitRelease: pending status failed", "err", err)
 		}
 		go i.reportRelease(ctx, c, owner, name, sha, p, run, target, tracked.OwnerID, info)
 	}
+	slog.Info("github: SubmitRelease: done", "runs", len(runs))
 	return runs, nil
 }
 
 func (i *Integration) reportRelease(ctx context.Context, c *Client, owner, name, sha string, p *engine.Pipeline, run *daemon.Run, target, ownerID string, info ReleaseInfo) {
+	slog.Info("github: reportRelease: run completed, waiting...", "pipeline", p.Name, "run_id", run.ID())
 	run.Wait()
+
 	if run.Status() == daemon.StatusFailed {
+		slog.Error("github: reportRelease: run failed", "pipeline", p.Name, "run_id", run.ID())
 		i.setReleaseStatus(ctx, c, owner, name, sha, p.Name, "failure", "jittrippin: "+p.Name+" [failed]", target)
 		return
 	}
@@ -207,34 +225,40 @@ func (i *Integration) reportRelease(ctx context.Context, c *Client, owner, name,
 	if rel == nil {
 		return
 	}
+	slog.Info("github: reportRelease: uploading artifacts", "pipeline", p.Name, "count", len(rel.Artifacts))
 	uploaded := 0
 	for _, ra := range rel.Artifacts {
 		assetName := ra.As
 		if assetName == "" {
 			assetName = ra.Name + ".tar"
 		}
+
+		slog.Debug("github: reportRelease: loading artifact", "job", ra.Job, "artifact", ra.Name, "asset_name", assetName)
 		rc, err := i.mgr.GetArtifact(ctx, daemon.GetArtifactConfig{
 			RunID: run.ID(), UserID: ownerID, JobName: ra.Job, ArtifactName: ra.Name,
 		})
 		if err != nil {
-			log.Printf("github: release artifact load failed: %v", err)
+			slog.Error("github: reportRelease: artifact load failed", "job", ra.Job, "artifact", ra.Name, "err", err)
 			i.setReleaseStatus(ctx, c, owner, name, sha, p.Name, "failure", "jittrippin: "+p.Name+" [artifact load failed]", target)
 			return
 		}
 		if err := i.uploadReleaseAsset(ctx, c, owner, name, info.ReleaseID, assetName, rc); err != nil {
 			rc.Close()
-			log.Printf("github: release asset upload failed: %v", err)
+			slog.Error("github: reportRelease: asset upload failed", "asset_name", assetName, "err", err)
 			i.setReleaseStatus(ctx, c, owner, name, sha, p.Name, "failure", "jittrippin: "+p.Name+" [asset upload failed]", target)
 			return
 		}
 		rc.Close()
+		slog.Info("github: reportRelease: asset uploaded", "asset_name", assetName)
 		uploaded++
 	}
+	slog.Info("github: reportRelease: all assets uploaded", "pipeline", p.Name, "uploaded", uploaded)
 	i.setReleaseStatus(ctx, c, owner, name, sha, p.Name, "success",
 		fmt.Sprintf("jittrippin: %s [passed] (%d assets)", p.Name, uploaded), target)
 }
 
 func (i *Integration) uploadReleaseAsset(ctx context.Context, c *Client, owner, name string, releaseID int64, assetName string, rc io.ReadCloser) error {
+	slog.Debug("github: uploadReleaseAsset: buffering", "asset_name", assetName, "release_id", releaseID)
 	f, err := os.CreateTemp("", "jt-release-*")
 	if err != nil {
 		return err
@@ -248,29 +272,41 @@ func (i *Integration) uploadReleaseAsset(ctx context.Context, c *Client, owner, 
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
+	info, _ := f.Stat()
+	slog.Debug("github: uploadReleaseAsset: buffered", "asset_name", assetName, "size", info.Size())
 
 	assets, err := c.ListReleaseAssets(ctx, owner, name, releaseID)
 	if err != nil {
+		slog.Error("github: uploadReleaseAsset: ListReleaseAssets failed", "err", err)
 		return err
 	}
 	for _, a := range assets {
 		if a.GetName() == assetName {
+			slog.Debug("github: uploadReleaseAsset: deleting existing asset", "asset_name", assetName, "asset_id", a.GetID())
 			if err := c.DeleteReleaseAsset(ctx, owner, name, a.GetID()); err != nil {
 				return err
 			}
 			break
 		}
 	}
+
+	slog.Debug("github: uploadReleaseAsset: uploading", "asset_name", assetName, "size", info.Size())
 	_, err = c.UploadReleaseAsset(ctx, owner, name, releaseID, assetName, f)
+	if err != nil {
+		slog.Error("github: uploadReleaseAsset: UploadReleaseAsset failed", "asset_name", assetName, "err", err)
+	} else {
+		slog.Info("github: uploadReleaseAsset: uploaded", "asset_name", assetName, "size", info.Size())
+	}
 	return err
 }
 
 func (i *Integration) setReleaseStatus(ctx context.Context, c *Client, owner, name, sha, pipelineName, state, descr, target string) {
+	slog.Info("github: setReleaseStatus", "pipeline", pipelineName, "state", state, "descr", descr)
 	if err := c.CreateCommitStatus(ctx, CreateCommitStatusConfig{
 		Owner: owner, Name: name, SHA: sha, State: state,
 		Context: "jittrippin/" + pipelineName, Desc: descr, TargetURL: target,
 	}); err != nil {
-		log.Printf("github: release status failed: %v", err)
+		slog.Error("github: setReleaseStatus: failed", "pipeline", pipelineName, "err", err)
 	}
 }
 
@@ -291,7 +327,7 @@ func (i *Integration) reportCompletion(ctx context.Context, c *Client, owner, na
 		Desc:      descr,
 		TargetURL: target,
 	}); err != nil {
-		log.Printf("github: final status failed: %v", err)
+		slog.Error("github: reportCompletion: status failed", "pipeline", pipelineName, "err", err)
 	}
 
 }

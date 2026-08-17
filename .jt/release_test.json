@@ -12,7 +12,7 @@
             "tags": ["v*"]
         },
         "release": {
-            "on": "published",
+            "on": "created",
             "artifacts": [
                 {
                     "job": "package",

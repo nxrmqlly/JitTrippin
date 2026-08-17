@@ -96,7 +96,6 @@ func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sig := r.Header.Get("X-Hub-Signature-256")
-
 	if !VerifyWebhook(
 		os.Getenv("GITHUB_WEBHOOK_SECRET"),
 		body, sig,
@@ -106,6 +105,7 @@ func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	event := r.Header.Get("X-GitHub-Event")
+	slog.Debug("github: webhook: received event", "event", event)
 	switch event {
 	case "push":
 		var event PushEvent
@@ -144,8 +144,6 @@ func (ro *Router) handleGithubWebhook(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 		return
 	case "release":
-		slog.Debug("github: webhook: received release event")
-
 		var event ReleaseEvent
 		if err := json.Unmarshal(body, &event); err != nil {
 			slog.Error("github: webhook: release: failed to unmarshal", "err", err)

@@ -7,7 +7,7 @@ pipeline "test-lua" {
     },
     github = {
         push = {
-            branch = "main",
+            branch = "master",
         },
         release = {
             on = "published",

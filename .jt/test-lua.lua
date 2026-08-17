@@ -21,11 +21,6 @@ pipeline "test-lua" {
         },
     },
 
-    job "debug" {
-        image = "golang:latest",
-        run "pwd && ls -la && find . -maxdepth 2 -type f | head -50",
-    },
-
     job "build" {
         image = "golang:latest",
         env = {

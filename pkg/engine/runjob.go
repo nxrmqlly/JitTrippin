@@ -60,10 +60,14 @@ func ExecuteJob(ctx context.Context, cfg ExecuteJobConfig) error {
 			return err
 		}
 
+		log.Printf("copying checkout into %s", cfg.runner.WorkDir())
+
 		if err := exec.CopyIn(ctx, r, cfg.runner.WorkDir()); err != nil {
 			r.Close()
 			return err
 		}
+
+		log.Printf("checkout copied into %s", cfg.runner.WorkDir())
 		r.Close()
 
 	}

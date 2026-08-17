@@ -127,28 +127,25 @@ func (e *DockerExecution) Exec(ctx context.Context, cfg ExecConfig) (ExecResult,
 	}
 	return ExecResult{ExitCode: exitCode}, nil
 }
-
 func (e *DockerExecution) CopyIn(ctx context.Context, reader io.Reader, pathTo string) error {
 	if !filepath.IsAbs(pathTo) {
 		pathTo = filepath.Join(e.workDir, pathTo)
 	}
 
-	parent := filepath.Dir(pathTo)
 	if _, err := e.Exec(ctx, ExecConfig{
-		Cmd:    "mkdir -p " + parent,
+		Cmd:    "mkdir -p " + pathTo,
 		Stdout: io.Discard,
 		Stderr: io.Discard,
 	}); err != nil {
-		return fmt.Errorf("cannot create parent dir: %w", err)
+		return fmt.Errorf("cannot create dir: %w", err)
 	}
 
 	_, err := e.client.CopyToContainer(ctx, e.containerID, client.CopyToContainerOptions{
-		DestinationPath: parent,
+		DestinationPath: pathTo,
 		Content:         reader,
 	})
 	return err
 }
-
 func (e *DockerExecution) CopyOut(ctx context.Context, pathFrom string) (io.ReadCloser, error) {
 	if !filepath.IsAbs(pathFrom) {
 		pathFrom = filepath.Join(e.workDir, pathFrom)

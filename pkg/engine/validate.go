@@ -60,26 +60,9 @@ func (p *Pipeline) Validate() error {
 }
 
 func (p *Pipeline) validateStepFields(job Job, errs *ValidationErrors) {
-	stepNames := make(map[string]struct{})
 	for sIdx, s := range job.Steps {
 
 		jobStep := fmt.Sprintf("step %d '%s/%s'", sIdx+1, job.Name, s.Name)
-
-		if s.Name == "" {
-			errs.Add(ValidationError{
-				Location: jobStep,
-				Message:  "name cannot be empty",
-			})
-		}
-
-		if _, exists := stepNames[s.Name]; exists {
-			errs.Add(ValidationError{
-				Location: jobStep,
-				Message:  "duplicate step name",
-			})
-		}
-
-		stepNames[s.Name] = struct{}{}
 
 		if s.Cmd == "" {
 			errs.Add(ValidationError{

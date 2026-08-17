@@ -13,6 +13,7 @@ import (
 	gh "github.com/google/go-github/v90/github"
 	"github.com/nxrmqlly/jittrippin/internal/config"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
+	"github.com/nxrmqlly/jittrippin/pkg/lua"
 	"golang.org/x/oauth2"
 )
 
@@ -151,19 +152,38 @@ func LoadPipelinesAtSHA(ctx context.Context, c *Client, owner, name, sha string)
 			continue
 		}
 		rel := strings.TrimPrefix(en.Path, pre)
-		if strings.Contains(rel, "/") || !strings.HasSuffix(rel, ".json") {
+		if strings.Contains(rel, "/") {
 			continue
 		}
-		cont, err := c.GetContentAtSHA(ctx, owner, name, en.Path, sha)
-		if err != nil {
-			log.Printf("github: skip pipeline %q: %v", en.Path, err)
+
+		var p *engine.Pipeline
+		switch {
+		case strings.HasSuffix(rel, ".json"):
+			cont, err := c.GetContentAtSHA(ctx, owner, name, en.Path, sha)
+			if err != nil {
+				log.Printf("github: skip pipeline %q: %v", en.Path, err)
+				continue
+			}
+			p, err = engine.ProcessJSON(cont)
+			if err != nil {
+				log.Printf("github: skip pipeline %q: %v", en.Path, err)
+				continue
+			}
+		case strings.HasSuffix(rel, ".lua"):
+			cont, err := c.GetContentAtSHA(ctx, owner, name, en.Path, sha)
+			if err != nil {
+				log.Printf("github: skip pipeline %q: %v", en.Path, err)
+				continue
+			}
+			p, err = lua.ProcessLua(cont)
+			if err != nil {
+				log.Printf("github: skip pipeline %q: %v", en.Path, err)
+				continue
+			}
+		default:
 			continue
 		}
-		p, err := engine.ProcessJSON(cont)
-		if err != nil {
-			log.Printf("github: skip pipeline %q: %v", en.Path, err)
-			continue
-		}
+
 		pipelines = append(pipelines, p)
 	}
 	return pipelines, nil

@@ -18,6 +18,7 @@ import (
 	"github.com/nxrmqlly/jittrippin/pkg/checkout"
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 	"github.com/nxrmqlly/jittrippin/pkg/logs"
+	"github.com/nxrmqlly/jittrippin/pkg/lua"
 	"github.com/nxrmqlly/jittrippin/pkg/runner"
 	"github.com/urfave/cli/v3"
 )
@@ -67,6 +68,9 @@ func loadPipeline(path string) (*engine.Pipeline, error) {
 	if err != nil {
 		return nil, err
 	}
+	if strings.HasSuffix(path, ".lua") {
+		return lua.ProcessLua(string(raw))
+	}
 	return engine.ProcessJSON(string(raw))
 }
 
@@ -100,21 +104,28 @@ func resolvePipelines(dir, filter string) ([]*engine.Pipeline, error) {
 		return nil, fmt.Errorf("pipelines directory %q not found (run 'jt init'?)", dir)
 	}
 
-	files, err := filepath.Glob(filepath.Join(dir, "*.json"))
+	jsonFiles, err := filepath.Glob(filepath.Join(dir, "*.json"))
 	if err != nil {
 		return nil, err
 	}
+	luaFiles, err := filepath.Glob(filepath.Join(dir, "*.lua"))
+	if err != nil {
+		return nil, err
+	}
+	files := append(jsonFiles, luaFiles...)
 
 	var pipelines []*engine.Pipeline
 	var names []string
 	for _, f := range files {
-		p, err := engine.ProcessJSONFile(f)
+		var p *engine.Pipeline
+		var err error
+		if strings.HasSuffix(f, ".lua") {
+			p, err = lua.ProcessLuaFile(f)
+		} else {
+			p, err = engine.ProcessJSONFile(f)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse %s: %w", f, err)
-		}
-		names = append(names, p.Name)
-		if filter != "" && p.Name != filter && filepath.Base(f) != filter && filepath.Base(f) != filter+".json" {
-			continue
 		}
 		pipelines = append(pipelines, p)
 	}

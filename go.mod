@@ -16,6 +16,7 @@ require (
 	github.com/moby/moby/client v0.5.0
 	github.com/pressly/goose/v3 v3.27.3
 	github.com/urfave/cli/v3 v3.10.1
+	github.com/yuin/gopher-lua v1.1.2
 	github.com/zalando/go-keyring v0.2.8
 	golang.org/x/oauth2 v0.36.0
 )

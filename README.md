@@ -4,7 +4,7 @@
 
 > CI/CD Engine for the average monkeybrain. minus YAML.
 
-**JitTripin is:**
+**JitTrippin is:**
 
 - a CI engine, served to you as a go package (`jittrippin/pkg`)
 - a selfhostable CI engine server (`jtd`)
@@ -15,10 +15,10 @@ JitTrippin exists because YAML (for CI/CD) deserves to be thrown into a vat of l
 **With JitTrippin,**
 
 - You define your pipelines in **programmable Lua.**
-- You can choose the enviroment you run your pipelines. (ie. Docker, Podman, MicroVM etc.)
+- You can choose the environment you run your pipelines. (ie. Docker, Podman, MicroVM etc.)
 - You can choose whatever Storage method you want to use for your artifacts. (ie. Disk, S3 etc.)
 
-Ofcourse, choices only exist if they are implemented.
+Of course, choices only exist if they are implemented.
 JitTrippin is in very early development. We have Docker + Disk Storage (for artifacts) for now.
 
 ## References

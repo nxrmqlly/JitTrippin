@@ -9,33 +9,7 @@
 
 - `.jtrc`: project level (toml)
 - `user-config.toml`: user level, for cli - stores daemon instance in use
-- `jtd-config.toml`: server level, for jtd - DK if we need it yet
 
-## CLI:
-
-- All commands that require login and/or config must prompt user for that
-- All commands that _may_ need login and/or config advertise warning
-
-### Interactivity
-
-Let's use charmbracelet/huh/v2
-Example:
-
-```
-✓ GitHub account connected
-✓ JitTrippin installed
-
-? Repository
-  > ritam.in4k/jittrippin
-    ritam.in4k/arcfile
-    ritam.in4k/foo
-
-? Branch
-  > main
-    develop
-
-✓ Pipeline configured
-```
 
 ### Commmands:
 

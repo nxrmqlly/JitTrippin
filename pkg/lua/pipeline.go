@@ -22,12 +22,12 @@ func luaPipeline(result **pipelineBuilder) lua.LGFunction {
 			L.RaiseError("pipeline: only one pipeline may be defined")
 			return 0
 		}
-		
+
 		name := L.CheckString(1)
 		pb := &pipelineBuilder{
 			name: name,
 		}
-		
+
 		ud := L.NewUserData()
 		ud.Value = pb
 

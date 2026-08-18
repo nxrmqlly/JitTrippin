@@ -19,7 +19,7 @@ type Checkout struct {
 // to it.
 //
 //	Format:
-//	https://x-access-token:tok@github.com/nxrmqlly/JitTrippin.git
+//	https://x-access-token:tok@github.com/nxrmqlly/jittrippin.git
 func (c Checkout) AuthURL() (string, error) {
 	if c.Username == "" || c.Password == "" {
 		return c.URL, nil

@@ -37,7 +37,7 @@ Example: `hello-world.lua`
 pipeline "hello-world"
 
 checkout {
-    url = "https://github.com/nxrmqlly/JitTrippin",
+    url = "https://github.com/nxrmqlly/jittrippin",
     branch = "master",
 }
 
@@ -66,18 +66,18 @@ job "echo-stuff" {
 **The `jt` CLI:**
 
 ```sh
-go install github.com/nxrmqlly/JitTrippin/cmd/jt@latest
+go install github.com/nxrmqlly/jittrippin/cmd/jt@latest
 ```
 
 **The `jtd` REST API Daemon:**
 
 ```sh
-go install github.com/nxrmqlly/JitTrippin/cmd/jtd@latest
+go install github.com/nxrmqlly/jittrippin/cmd/jtd@latest
 ```
 
 ### Releases
 
-(Some) Prebuilt binaries are available on the [Releases Page](https://github.com/nxrmqlly/JitTrippin/releases/)
+(Some) Prebuilt binaries are available on the [Releases Page](https://github.com/nxrmqlly/jittrippin/releases/)
 
 ## Quick Start
 

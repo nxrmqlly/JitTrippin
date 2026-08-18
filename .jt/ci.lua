@@ -4,7 +4,7 @@ pipeline "ci" {
 }
 
 checkout {
-    url = "https://github.com/nxrmqlly/JitTrippin",
+    url = "https://github.com/nxrmqlly/jittrippin",
     branch = "master",
 }
 

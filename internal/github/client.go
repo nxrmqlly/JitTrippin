@@ -175,7 +175,7 @@ func LoadPipelinesAtSHA(ctx context.Context, c *Client, owner, name, sha string)
 				log.Printf("github: skip pipeline %q: %v", en.Path, err)
 				continue
 			}
-			p, err = lua.ProcessLua(cont)
+			p, err = lua.ProcessLua(ctx, cont)
 			if err != nil {
 				log.Printf("github: skip pipeline %q: %v", en.Path, err)
 				continue

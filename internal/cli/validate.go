@@ -23,7 +23,7 @@ func CmdValidate() *cli.Command {
 func handleValidate(ctx context.Context, c *cli.Command) error {
 	pipelineFile := c.StringArg("pipeline-file")
 
-	p, err := loadPipeline(pipelineFile)
+	p, err := loadPipeline(ctx, pipelineFile)
 	if err != nil {
 		return err
 	}

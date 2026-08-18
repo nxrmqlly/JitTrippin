@@ -1,17 +1,26 @@
 package lua
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/nxrmqlly/jittrippin/pkg/engine"
 	lua "github.com/yuin/gopher-lua"
 )
 
-func newVM() (*lua.LState, error) {
+func newVM(ctx context.Context) (*lua.LState, error) {
 	L := lua.NewState(lua.Options{
-		SkipOpenLibs: true,
+		SkipOpenLibs:  true,
+		CallStackSize: 128,
+
+		RegistrySize:     1024,
+		RegistryMaxSize:  8192,
+		RegistryGrowStep: 1024,
 	})
+	L.SetContext(ctx)
+	L.SetMx(32) // 32 MiB max
 
 	lua.OpenBase(L)
 	lua.OpenTable(L)
@@ -40,8 +49,11 @@ func registerDSL(L *lua.LState, result **pipelineBuilder) {
 	L.SetGlobal("artifact", L.NewFunction(luaArtifact))
 }
 
-func ProcessLua(data string) (*engine.Pipeline, error) {
-	L, err := newVM()
+func ProcessLua(ctx context.Context, data string) (*engine.Pipeline, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	L, err := newVM(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -58,10 +70,10 @@ func ProcessLua(data string) (*engine.Pipeline, error) {
 	return buildPipeline(res)
 }
 
-func ProcessLuaFile(path string) (*engine.Pipeline, error) {
+func ProcessLuaFile(ctx context.Context, path string) (*engine.Pipeline, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	return ProcessLua(string(data))
+	return ProcessLua(ctx, string(data))
 }

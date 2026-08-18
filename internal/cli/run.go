@@ -63,13 +63,13 @@ func CmdRun() *cli.Command {
 }
 
 // loadPipeline loads a single pipeline from a file. Used by `jt validate`.
-func loadPipeline(path string) (*engine.Pipeline, error) {
+func loadPipeline(ctx context.Context, path string) (*engine.Pipeline, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 	if strings.HasSuffix(path, ".lua") {
-		return lua.ProcessLua(string(raw))
+		return lua.ProcessLua(ctx, string(raw))
 	}
 	return engine.ProcessJSON(string(raw))
 }
@@ -83,7 +83,7 @@ func handleRun(ctx context.Context, c *cli.Command) error {
 		return err
 	}
 
-	pipelines, err := resolvePipelines(cfg.Pipelines.Dir, c.String("pipeline"))
+	pipelines, err := resolvePipelines(ctx, cfg.Pipelines.Dir, c.String("pipeline"))
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func handleRun(ctx context.Context, c *cli.Command) error {
 	return runRemote(ctx, c, pipelines)
 }
 
-func resolvePipelines(dir, filter string) ([]*engine.Pipeline, error) {
+func resolvePipelines(ctx context.Context, dir, filter string) ([]*engine.Pipeline, error) {
 	if _, err := os.Stat(dir); err != nil {
 		return nil, fmt.Errorf("pipelines directory %q not found (run 'jt init'?)", dir)
 	}
@@ -120,7 +120,7 @@ func resolvePipelines(dir, filter string) ([]*engine.Pipeline, error) {
 		var p *engine.Pipeline
 		var err error
 		if strings.HasSuffix(f, ".lua") {
-			p, err = lua.ProcessLuaFile(f)
+			p, err = lua.ProcessLuaFile(ctx, f)
 		} else {
 			p, err = engine.ProcessJSONFile(f)
 		}

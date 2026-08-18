@@ -384,7 +384,7 @@ func (s *Store) TouchSession(ctx context.Context, tokenHash string) error {
 		return ErrNotFound
 	}
 	if err != nil {
-		return fmt.Errorf("cannot revoke session with hash %s: %w", tokenHash, err)
+		return fmt.Errorf("cannot touch session with hash %s: %w", tokenHash, err)
 	}
 
 	return nil
@@ -452,7 +452,7 @@ func (s *Store) CreateAuthCode(ctx context.Context, ac *AuthCode) error {
 	)
 
 	if err != nil {
-		return fmt.Errorf("cannot create OAuth State %s: %w", ac.CodeHash, err)
+		return fmt.Errorf("cannot create Auth Code %s: %w", ac.CodeHash, err)
 	}
 
 	return nil

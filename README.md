@@ -1,21 +1,117 @@
-<center><h1>JitTrippin (JT)</h1></center>
+# JitTrippin (JT)
+
 <img src="./assets/jt-banner-thin.png" alt="JitTrippin Banner">
 
-CI/CD Engine for the average monkeybrain. minus YAML.
+> CI/CD Engine for the average monkeybrain. minus YAML.
 
-JitTrippin is designed to but plug and play with whatever environment you please.
-It's designed to not lock you down into using only docker, or S3.
+**JitTripin is:**
 
+- a CI engine, served to you as a go package (`jittrippin/pkg`)
+- a selfhostable CI engine server (`jtd`)
+- a CLI to talk to said server (`jt`)
+
+JitTrippin exists because YAML (for CI/CD) deserves to be thrown into a vat of lava.
+
+**With JitTrippin,**
+
+- You define your pipelines in **programmable Lua.**
 - You can choose the enviroment you run your pipelines. (ie. Docker, Podman, MicroVM etc.)
 - You can choose whatever Storage method you want to use for your artifacts. (ie. Disk, S3 etc.)
 
 Ofcourse, choices only exist if they are implemented.
 JitTrippin is in very early development. We have Docker + Disk Storage (for artifacts) for now.
 
-## Compatibility
+## References
+
+1. CLI Reference: [spec/cli.md](./spec/cli.md)
+2. Pipelines in Lua Reference: [spec/lua.md](./spec/lua.md)
+
+## Pipelines
+
+Pipelines are written in Lua, so you get normal programming language features like
+variables, loops, and functions instead of dreaded YAML syntax.
+
+Example: `hello-world.lua`
+
+```lua
+pipeline "hello-world"
+
+checkout {
+    url = "https://github.com/nxrmqlly/JitTrippin",
+    branch = "master",
+}
+
+github {
+    push = {
+        branch = "master",
+    },
+}
+
+job "echo-stuff" {
+    image = "alpine:latest"
+
+    run "echo hello world!"
+    run "named step" {
+        cmd = "echo some stuff here..."
+    }
+}
+```
+
+### Learn how to define a pipeline [here.](./spec/lua.md)
+
+## Installing
+
+### From source
+
+**The `jt` CLI:**
+
+```sh
+go install github.com/nxrmqlly/JitTrippin/cmd/jt@latest
+```
+
+**The `jtd` REST API Daemon:**
+
+```sh
+go install github.com/nxrmqlly/JitTrippin/cmd/jtd@latest
+```
+
+### Releases
+
+(Some) Prebuilt binaries are available on the [Releases Page](https://github.com/nxrmqlly/JitTrippin/releases/)
+
+## Quick Start
+
+1. Run `jt init` in your project dir.
+2. Create a `.jt/ci.lua` file.
+    ```lua
+    pipeline "ci" {
+        description = "Some funny CI pipeline",
+    }
+
+    checkout {
+        url = "https://github.com/you/project",
+        branch = "main",
+    }
+
+    job "test" {
+        image = "golang:latest",
+
+        run "go test ./..."
+    }
+    ```
+3. Run it locally: `jt run --local`
+4. Run it on a remote daemon! `jt run` (you will need to authenticate)
+
+## Contributing
+
+JitTrippin is open to contributions!
+If you would like to fix a bug or add a new feature, create a PR!
+
+## Compatibility and Current State
+
+JitTrippin is very early-stage software.
 
 JitTrippin is designed for unix-like systems (Linux, MacOS) primarily. Windows support is untested.
-No support is provided for broken JT on Windows machines.
 
-JT also assumes that Pipelines will run in Linux containers. Support for Windows containers is
-best-effort.
+It also assumes that Pipelines will run in Linux containers. Support for Windows containers is
+not in the current target.

@@ -109,7 +109,7 @@ func (i *Integration) SubmitPush(ctx context.Context, tracked store.TrackedRepos
 		runs = append(runs, run)
 
 		statusCtx := "jittrippin/" + p.Name
-		target := i.pub + "/runs/" + run.ID()
+		target := i.pub + "/api/v1/runs/" + run.ID()
 		if err := c.CreateCommitStatus(ctx, CreateCommitStatusConfig{
 			Owner:     owner,
 			Name:      name,
@@ -197,7 +197,7 @@ func (i *Integration) SubmitRelease(ctx context.Context, tracked store.TrackedRe
 		runs = append(runs, run)
 
 		statusCtx := "jittrippin/" + p.Name
-		target := i.pub + "/runs/" + run.ID()
+		target := i.pub + "/api/v1/runs/" + run.ID()
 		slog.Info("github: SubmitRelease: run submitted", "pipeline", p.Name, "run_id", run.ID(), "target", target)
 		if err := c.CreateCommitStatus(ctx, CreateCommitStatusConfig{
 			Owner: owner, Name: name, SHA: sha, State: "pending",

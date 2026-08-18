@@ -348,7 +348,7 @@ func runRemote(ctx context.Context, c *cli.Command, pipelines []*engine.Pipeline
 		if err != nil {
 			return fmt.Errorf("submit pipeline %q: %w", p.Name, err)
 		}
-		fmt.Printf("%s: %s/runs/%s\n", p.Name, client.baseURL, id)
+		fmt.Printf("%s: %s/api/v1/runs/%s\n", p.Name, client.baseURL, id)
 		lr := &liveRun{p: p, id: id}
 		for _, job := range p.Jobs {
 			lj := &liveJob{name: job.Name}
@@ -487,9 +487,9 @@ func renderChecklist(runs []*liveRun, baseURL string) {
 			if err != nil && *err != "" {
 				fmt.Printf("  error: %s\n", *err)
 			}
-			fmt.Printf("  logs: %s/runs/%s\n", baseURL, lr.id)
+			fmt.Printf("  logs: %s/api/v1/runs/%s\n", baseURL, lr.id)
 			for _, job := range lr.p.Jobs {
-				fmt.Printf("    %s/runs/%s/logs/%s\n", baseURL, lr.id, job.Name)
+				fmt.Printf("    %s/api/v1/runs/%s/logs/%s\n", baseURL, lr.id, job.Name)
 			}
 		default:
 			fmt.Printf("? %s\n", lr.p.Name)

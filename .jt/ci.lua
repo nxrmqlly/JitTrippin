@@ -1,5 +1,5 @@
 pipeline "ci" {
-    description = "Lint, vet, and build on every push",
+    description = "Lint, vet, and build",
     visibility = "public",
 }
 
@@ -25,13 +25,9 @@ job "build" {
         CGO_ENABLED = "0"
     },
 
-    run "build-cli" {
-        cmd = "CGO_ENABLED=0 go build -o dist/jt ./cmd/jt"
-    },
+    run "go build -o dist/jt ./cmd/jt",
+    run "go build -o dist/jtd ./cmd/jtd",
 
-    run "build-daemon" {
-        cmd = "CGO_ENABLED=0 go build -o dist/jtd ./cmd/jtd"
-    },
     artifact("jt-cli", "dist/jt"),
     artifact("jtd-daemon", "dist/jtd")
 }

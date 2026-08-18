@@ -60,9 +60,15 @@ func unwrapStep(v lua.LValue) (*engine.Step, bool) {
 	if !ok {
 		return nil, false
 	}
-	s, ok := ud.Value.(*engine.Step)
-	return s, ok
-
+	sb, ok := ud.Value.(*stepBuilder)
+	if !ok {
+		return nil, false
+	}
+	step := &engine.Step{
+		Name: sb.name,
+		Cmd:  sb.cmd,
+	}
+	return step, true
 }
 
 func unwrapDependency(v lua.LValue) (*engine.Dependency, bool) {
@@ -82,14 +88,4 @@ func unwrapArtifact(v lua.LValue) (*artifact.Artifact, bool) {
 	}
 	s, ok := ud.Value.(*artifact.Artifact)
 	return s, ok
-}
-
-func unwrapJobBuilder(v lua.LValue) (*jobBuilder, bool) {
-	ud, ok := v.(*lua.LUserData)
-	if !ok {
-		return nil, false
-	}
-	s, ok := ud.Value.(*jobBuilder)
-	return s, ok
-
 }

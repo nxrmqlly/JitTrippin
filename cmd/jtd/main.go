@@ -82,7 +82,7 @@ func main() {
 	ls := logs.NewFileStore(as, bs)
 
 	e := engine.NewExecutor(engine.ExecutorConfig{
-		MaxParallel: -1,
+		MaxParallel: 6,
 
 		Runner:        rn,
 		ArtifactStore: as,

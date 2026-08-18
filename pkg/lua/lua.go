@@ -30,8 +30,11 @@ func newVM() (*lua.LState, error) {
 }
 
 func registerDSL(L *lua.LState, result **pipelineBuilder) {
-	L.SetGlobal("pipeline", L.NewFunction(luaPipelineFunc(result)))
-	L.SetGlobal("job", L.NewFunction(luaJob))
+	L.SetGlobal("pipeline", L.NewFunction(luaPipeline(result)))
+	L.SetGlobal("checkout", L.NewFunction(luaCheckout(result)))
+	L.SetGlobal("job", L.NewFunction(luaJob(result)))
+	L.SetGlobal("github", L.NewFunction(luaGithub(result)))
+
 	L.SetGlobal("run", L.NewFunction(luaRun))
 	L.SetGlobal("needs", L.NewFunction(luaNeeds))
 	L.SetGlobal("artifact", L.NewFunction(luaArtifact))

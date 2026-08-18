@@ -15,20 +15,29 @@ type jobBuilder struct {
 	artifacts []artifact.Artifact
 }
 
-func luaJob(L *lua.LState) int {
-	name := L.CheckString(1)
+func luaJob(result **pipelineBuilder) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if *result == nil {
+			L.RaiseError("job: pipeline must be declared first")
+			return 0
+		}
+		name := L.CheckString(1)
+		jb := &jobBuilder{
+			name: name,
+		}
 
-	jb := &jobBuilder{name: name}
+		(*result).jobs = append((*result).jobs, jb)
 
-	ud := L.NewUserData()
-	ud.Value = jb
+		ud := L.NewUserData()
+		ud.Value = jb
 
-	mt := L.NewTable()
-	L.SetField(mt, "__call", L.NewFunction(jobCall))
-	L.SetMetatable(ud, mt)
+		mt := L.NewTable()
+		L.SetField(mt, "__call", L.NewFunction(jobCall))
+		L.SetMetatable(ud, mt)
 
-	L.Push(ud)
-	return 1
+		L.Push(ud)
+		return 1
+	}
 }
 
 func jobCall(L *lua.LState) int {
@@ -57,6 +66,6 @@ func jobCall(L *lua.LState) int {
 			jb.artifacts = append(jb.artifacts, *a)
 		}
 	})
-	L.Push(ud)
-	return 1
+
+	return 0
 }

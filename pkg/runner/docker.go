@@ -52,9 +52,9 @@ func (r *DockerRunner) Create(ctx context.Context, cfg ExecutionCreateConfig) (E
 		},
 		HostConfig: &container.HostConfig{
 			Resources: container.Resources{
-				Memory:    512 * 1024 * 1024,
+				Memory:    1024 * 1024 * 1024,
 				NanoCPUs:  2_000_000_000,
-				PidsLimit: new(int64(100)),
+				PidsLimit: new(int64(150)),
 			},
 			CapDrop:     []string{"ALL"},
 			SecurityOpt: []string{"no-new-privileges:true"},

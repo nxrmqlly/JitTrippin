@@ -16,11 +16,18 @@ type pipelineBuilder struct {
 	github      *engine.GitHub
 }
 
-func luaPipelineFunc(result **pipelineBuilder) lua.LGFunction {
+func luaPipeline(result **pipelineBuilder) lua.LGFunction {
 	return func(L *lua.LState) int {
+		if *result != nil {
+			L.RaiseError("pipeline: only one pipeline may be defined")
+			return 0
+		}
+		
 		name := L.CheckString(1)
-		pb := &pipelineBuilder{name: name}
-
+		pb := &pipelineBuilder{
+			name: name,
+		}
+		
 		ud := L.NewUserData()
 		ud.Value = pb
 
@@ -35,8 +42,6 @@ func luaPipelineFunc(result **pipelineBuilder) lua.LGFunction {
 
 func pipelineCallFunc(result **pipelineBuilder, pb *pipelineBuilder) lua.LGFunction {
 	return func(L *lua.LState) int {
-		ud := L.CheckUserData(1)
-		_ = ud.Value.(*pipelineBuilder) // self
 		cfg := L.OptTable(2, nil)
 
 		if cfg != nil {
@@ -46,28 +51,39 @@ func pipelineCallFunc(result **pipelineBuilder, pb *pipelineBuilder) lua.LGFunct
 			if v := cfg.RawGetString("visibility"); v != lua.LNil {
 				pb.visibility = lua.LVAsString(v)
 			}
-			if v := cfg.RawGetString("checkout"); v != lua.LNil {
-				if tbl, ok := v.(*lua.LTable); ok {
-					if u := tbl.RawGetString("url"); u != lua.LNil {
-						pb.checkout.URL = lua.LVAsString(u)
-					}
-					if b := tbl.RawGetString("branch"); b != lua.LNil {
-						pb.checkout.Ref = lua.LVAsString(b)
-					}
-				}
-			}
-			if v := cfg.RawGetString("github"); v != lua.LNil {
-				if tbl, ok := v.(*lua.LTable); ok {
-					pb.github = parseGithubConfig(tbl)
-				}
-			}
-			forEachArray(cfg, func(v lua.LValue) {
-				if jb, ok := unwrapJobBuilder(v); ok {
-					pb.jobs = append(pb.jobs, jb)
-				}
-			})
 		}
 		*result = pb
+		return 0
+	}
+}
+
+func luaCheckout(result **pipelineBuilder) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if *result == nil {
+			L.RaiseError("checkout: pipeline must be declared first")
+			return 0
+		}
+		cfg := L.CheckTable(1)
+		if u := cfg.RawGetString("url"); u != lua.LNil {
+			(*result).checkout.URL = lua.LVAsString(u)
+		}
+		if b := cfg.RawGetString("branch"); b != lua.LNil {
+			(*result).checkout.Ref = lua.LVAsString(b)
+		}
+		return 0
+	}
+}
+
+func luaGithub(result **pipelineBuilder) lua.LGFunction {
+	return func(L *lua.LState) int {
+		if *result == nil {
+			L.RaiseError("github: pipeline must be declared first")
+			return 0
+		}
+
+		cfg := L.CheckTable(1)
+		(*result).github = parseGithubConfig(cfg)
+
 		return 0
 	}
 }

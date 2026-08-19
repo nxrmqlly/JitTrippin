@@ -119,7 +119,7 @@ func main() {
 	router := api.New(mgr, auth, gh)
 
 	srv := http.Server{
-		Addr:    ":5500",
+		Addr:    os.Getenv("JTD_BIND_ADDR"),
 		Handler: router,
 	}
 

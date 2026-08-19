@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"path/filepath"
 	"time"
 
-	// sdkContainer "github.com/docker/go-sdk/container"
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/moby/moby/api/pkg/stdcopy"
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
@@ -39,7 +40,32 @@ func (r *DockerRunner) WorkDir() string {
 	return "/workspace"
 }
 
+func (r *DockerRunner) ensureImage(ctx context.Context, image string) error {
+	_, err := r.client.ImageInspect(ctx, image)
+	if err == nil {
+		return nil
+	}
+	if !cerrdefs.IsNotFound(err) {
+		return fmt.Errorf("unable to inspect image %q: %w", image, err)
+	}
+
+	pull, err := r.client.ImagePull(ctx, image, client.ImagePullOptions{})
+	log.Printf("need to pull img %q", image)
+	if err != nil {
+		return fmt.Errorf("unable to pull image %q: %w", image, err)
+	}
+	defer pull.Close()
+	if err := pull.Wait(ctx); err != nil {
+		return fmt.Errorf("unable to pull image %q: %w", image, err)
+	}
+	return nil
+}
+
 func (r *DockerRunner) Create(ctx context.Context, cfg ExecutionCreateConfig) (Execution, error) {
+	if err := r.ensureImage(ctx, cfg.Image); err != nil {
+		return nil, err
+	}
+
 	wd := r.WorkDir()
 
 	resp, err := r.client.ContainerCreate(ctx, client.ContainerCreateOptions{

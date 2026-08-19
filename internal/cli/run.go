@@ -458,18 +458,8 @@ func renderLive(runs []*liveRun) int {
 		fmt.Fprintf(&buf, "%s %s\n", statusMark(status), lr.p.Name)
 		lines++
 		for _, lj := range lr.jobs {
-			tail := lj.Tail()
-			if len(tail) == 0 {
-				fmt.Fprintf(&buf, "  %s: (no output yet)\n", lj.name)
-				lines++
-				continue
-			}
-			fmt.Fprintf(&buf, "  %s:\n", lj.name)
+			fmt.Fprintf(&buf, "  %s %s\n", gray("·"), lj.name)
 			lines++
-			for _, l := range tail {
-				fmt.Fprintf(&buf, "    %s\n", l)
-				lines++
-			}
 		}
 	}
 	fmt.Fprint(os.Stdout, buf.String())

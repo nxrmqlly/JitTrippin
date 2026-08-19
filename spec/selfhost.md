@@ -28,6 +28,7 @@ docker run \
     -e POSTGRES_PASSWORD=jittrippin123 \
     -e POSTGRES_DB=jtdb \
     -p 5432:5432 \
+    --restart unless-stopped \
     -d postgres:latest
 ```
 
@@ -252,7 +253,7 @@ And paste this in:
 ```ini
 [Unit]
 Description=JitTrippin Daemon
-After=network-online.target docker.service postgresql.service
+After=network-online.target docker.service
 Wants=network-online.target
 Requires=docker.service
 

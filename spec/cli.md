@@ -2,14 +2,13 @@
 
 ## Auth and integrations
 
-1. Authenticate the CLI to a particular JitTrippin daemon.
+1. Authenticate the CLI using OAuth2 to a particular JitTrippin daemon.
 2. GitHub App authentication is then a daemon capability/integration.
 
 ## JitTrippin config:
 
 - `.jtrc`: project level (toml)
 - `user-config.toml`: user level, for cli - stores daemon instance in use
-
 
 ### Commmands:
 
@@ -29,11 +28,10 @@
     - if logged in: run remotely by default unless `--local` is passed
     - if not logged in: run locally and advertise a warning too
     - shows a checklist of pipelines and their jobs
-        - shows 2-3 lines of logs at a time
         - on fail: advertise links to logs or stdout them
         - on other errs, show the err
 
-- `jt init`: setup a .jtrc file in the repo
+- `jt init`: setup a `.jtrc` file in the repo
     - ask for proj name (default: dirname)
     - ask for dir (default: .jt/)
 

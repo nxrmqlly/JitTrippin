@@ -25,6 +25,7 @@ JitTrippin is in very early development. We have Docker + Disk Storage (for arti
 
 1. CLI Reference: [spec/cli.md](./spec/cli.md)
 2. Pipelines in Lua Reference: [spec/lua.md](./spec/lua.md)
+3. Selfhosting `jtd`: [spec/selfhost.md](./spec/selfhost.md)
 
 ## Pipelines
 
@@ -101,6 +102,10 @@ go install github.com/nxrmqlly/jittrippin/cmd/jtd@latest
     ```
 3. Run it locally: `jt run --local`
 4. Run it on a remote daemon! `jt run` (you will need to authenticate)
+
+## Selfhosting
+
+A comprehensive selfhosting guide is available at [spec/selfhost.md](./spec/selfhost.md)
 
 ## Contributing
 

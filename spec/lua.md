@@ -32,12 +32,6 @@ Both `description` and `visibility` are optional.
 This is valid too:
 
 ```lua
-pipeline "name"
-```
-
-And so is this:
-
-```lua
 pipeline "name" {}
 ```
 
@@ -385,7 +379,26 @@ github {
 }
 ```
 
+## Getting rid of LuaLS Warnings
+
+Depending on how you configure your Lua language servers, you might see warnings like:
+
+```md
+Undefined global `pipeline`. (Lua Diagnostics. undefined-global)
+```
+
+To get rid of them you can configure your language servers to use the
+the JT LuaLS metadata file at [jittrippin.lua](../pkg/lua/jittrippin.lua)
+
+Alternatively, you can paste this at the top of your pipeline files
+
+```lua
+---@diagnostic disable: undefined-global
+```
+
+> Warning: this supresses all Lua `undefined-global` diagnostics in that file, including warnings for globals that are not provided by JT.
+
 ## Complete Examples
 
 The CI for JitTrippin is done via... JitTrippin.
-Some of its own CI pipelines can be found in the [.jt](./.jt) directory.  
+Some of its own CI pipelines can be found in the [.jt](./.jt) directory.

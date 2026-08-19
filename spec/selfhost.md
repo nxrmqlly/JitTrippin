@@ -200,7 +200,7 @@ GITHUB_APP_SLUG=my-jittrippin
 ### Option A: Install the daemon:
 
 ```sh
-go install github.com/nxrmqlly/jittrippin/cmd/jtd@v0.1.1
+go install github.com/nxrmqlly/jittrippin/cmd/jtd@latest
 ```
 
 Copy the resulting binary somewhere systemd can execute it, for example:

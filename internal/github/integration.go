@@ -521,7 +521,7 @@ func matchesPush(p *engine.Pipeline, ref string) bool {
 	switch {
 	case strings.HasPrefix(ref, "refs/heads/"):
 		if len(pc.Branches) == 0 {
-			return true
+			return len(pc.Tags) == 0
 		}
 		name := strings.TrimPrefix(ref, "refs/heads/")
 		for _, g := range pc.Branches {
@@ -532,7 +532,7 @@ func matchesPush(p *engine.Pipeline, ref string) bool {
 		return false
 	case strings.HasPrefix(ref, "refs/tags/"):
 		if len(pc.Tags) == 0 {
-			return true
+			return len(pc.Branches) == 0
 		}
 		name := strings.TrimPrefix(ref, "refs/tags/")
 		for _, g := range pc.Tags {

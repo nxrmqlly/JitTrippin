@@ -82,26 +82,56 @@ go install github.com/nxrmqlly/jittrippin/cmd/jtd@latest
 
 ## Quick Start
 
-1. Run `jt init` in your project dir.
-2. Create a `.jt/ci.lua` file.
-    ```lua
-    pipeline "ci" {
-        description = "Some funny CI pipeline",
-    }
+1. Connect to a JitTrippin daemon
 
-    checkout {
-        url = "https://github.com/you/project",
-        branch = "main",
-    }
+```sh
+jt auth login
+```
 
-    job "test" {
-        image = "golang:latest",
+Then connect your GitHub account and install JitTrippin:
 
-        run "go test ./..."
-    }
-    ```
-3. Run it locally: `jt run --local`
-4. Run it on a remote daemon! `jt run` (you will need to authenticate)
+```sh
+jt integrations add
+```
+
+And choose the repositories JT should track:
+
+```sh
+jt repos add
+```
+
+2. Set up a project
+
+Inside your project directory:
+
+```sh
+jt init
+```
+
+This creates a `.jt/` directory for your JitTrippin pipelines and a `.jtrc` in the root dir
+
+Create `.jt/hello.lua`:
+
+```lua
+pipeline "hello"
+
+checkout {
+    url = "https://github.com/you/my-project",
+    branch = "main",
+}
+
+job "hello" {
+    image = "alpine:latest"
+
+    run "echo hello world!"
+}
+```
+
+3. Run it
+
+```sh
+jt run # or, jt run --local to run locally
+```
 
 ## Selfhosting
 

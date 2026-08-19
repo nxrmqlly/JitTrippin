@@ -110,7 +110,7 @@ Inside your project directory:
 jt init
 ```
 
-This creates a `.jt/` directory for your JitTrippin pipelines and a `.jtrc` in the root dir
+This creates a `.jt/` directory and a `.jtrc` in the root dir
 
 Create `.jt/hello.lua`:
 
@@ -129,7 +129,7 @@ job "hello" {
 }
 ```
 
-3. Run it
+3. Run
 
 ```sh
 jt run # or, jt run --local to run locally
@@ -146,9 +146,8 @@ If you would like to fix a bug or add a new feature, create a PR!
 
 ## Compatibility and Current State
 
-JitTrippin is very early-stage software.
+JitTrippin is very early stage software
 
-JitTrippin is designed for unix-like systems (Linux, MacOS) primarily. Windows support is untested.
+Its is designed for Linux and MacOS primarily, Windows support is untested. (for daemon)
 
-It also assumes that Pipelines will run in Linux containers. Support for Windows containers is
-not in the current target.
+It also assumes that pipelines will run in Linux containers. Support for Windows containers is only best-effort.

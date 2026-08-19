@@ -1,23 +1,23 @@
 # Lua for pipeline definitions
 
-Pipelines are canonically defined in (.lua) files
+Pipelines are canonically defined in .lua files
 
 - `pipeline`: pipeline metadata
 - `checkout`: source repository
 - `job`: units of work
-    - `image`: execution environment image
-    - `run`: commands executed by a job
+    - `image`: execution image
+    - `run`: commands executed
     - `needs`: job dependencies
-    - `env`: environment variables
+    - `env`: env variables
     - `artifact`: files produced by a job
-- `github`: GitHub-specific triggers and release behavior
+- `github`: GitHub specific config + behaviour
 
-**Since Lua is a programming language, you get access to local variables, loops, if-else statements and more.**
+**Since Lua is a real programming language, you can use local variables, loops, tables, if-else + more.**
 
 ## Pipeline (`pipeline`)
 
-A pipeline has a name and some optional metadata, it sits at the top level of a lua file.
-There can be only one pipeline per file.
+A pipeline has a name and some optional metadata and sits at the top of a lua file.
+There must be only one pipeline per file.
 
 ```lua
 pipeline "name" {                 -- must be a name
@@ -26,8 +26,6 @@ pipeline "name" {                 -- must be a name
 }
 -- jobs, checkout, artifacts
 ```
-
-Both `description` and `visibility` are optional.
 
 This is valid too:
 
@@ -51,7 +49,7 @@ checkout {
 
 ## Jobs (`job`)
 
-Jobs are the basic units of work in a pipeline
+The basic units of work in a pipeline
 
 ```lua
 pipeline "name" {...}
@@ -72,17 +70,17 @@ job "some-other-job" {
 
 A job can contain:
 
-- an image
-- environment variables
-- steps
-- dependencies
-- artifacts
+- an `image`
+- `env` variables
+- `run` steps
+- `needs` (dependencies)
+- `artifact()`s
 
 **Jobs are independent by default and can run in parallel**
 
-### Execution image (`image`)
+### Container Image (`image`)
 
-The image field specifies the container image used to execute the job.
+For Docker: Defines container image used to for the job.
 
 ```lua
 job "build" {
@@ -186,11 +184,11 @@ job "build" {
 artifact("binary", "dist/app")
 ```
 
-The artifact name can later be referenced by other jobs or integrations by name.
+The artifact name can later be referenced by other jobs or integrations by _name_.
 
 ## GitHub (`github`)
 
-GitHub-specific behaviour is defined here.
+GitHub on-pull/release/etc. behaviour is defined here.
 (Requires the repository and the branch to be tracked by a `jtd` instance)
 
 ```lua
@@ -255,7 +253,7 @@ github {
 
 ### Release Artifacts
 
-Release artifacts specify which job artifacts should be attached to the published GitHub release.
+Release artifacts specify which artifacts should be uploaded to the release.
 
 ```lua
 artifacts = {
@@ -324,8 +322,6 @@ build-darwin-arm64
 
 ### Conditional configuration
 
-Lua can be used to conditionally construct configuration.
-
 ```lua
 local debug = false
 
@@ -337,7 +333,7 @@ if debug then
 end
 ```
 
-Lua tables can be used to construct configuration before passing it to JT's DSL functions.
+Lua tables can be used to construct config before passing it to JT
 
 ```lua
 local targets = {
@@ -387,16 +383,16 @@ Depending on how you configure your Lua language servers, you might see warnings
 Undefined global `pipeline`. (Lua Diagnostics. undefined-global)
 ```
 
-To get rid of them you can configure your language servers to use the
-the JT LuaLS metadata file at [jittrippin.lua](../pkg/lua/jittrippin.lua)
+**To get rid of them you can configure your language servers to use the
+the JT LuaLS metadata file at [jittrippin.lua](../pkg/lua/jittrippin.lua)**
 
-Alternatively, you can paste this at the top of your pipeline files
+Alternatively, you can paste this at the top of your pipeline files:
 
 ```lua
 ---@diagnostic disable: undefined-global
 ```
 
-> Warning: this supresses all Lua `undefined-global` diagnostics in that file, including warnings for globals that are not provided by JT.
+> Warning: this supresses all Lua `undefined-global` diagnostics in that file.
 
 ## Complete Examples
 

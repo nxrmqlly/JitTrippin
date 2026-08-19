@@ -1,6 +1,6 @@
 # spec
 
-spec is a collection of UX and development notes
+spec is a collection of Documentation and Devnotes
 
 ## Separation of Concerns
 

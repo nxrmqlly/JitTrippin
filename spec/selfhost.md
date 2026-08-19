@@ -38,9 +38,7 @@ This results in your `JTD_POSTGRES_CONNSTR` to look like:
 postgres://admin:jittrippin123@localhost:5432/jtdb?sslmode=disable
 ```
 
-You should use a more secure password rather than "jittrippin123"
-
-Set it in the env.
+You should use a more secure password rather than "jittrippin123". Set it in the env.
 
 ## 3. Setup the Github App
 
@@ -54,12 +52,12 @@ Go to [GitHub Developer Settings](https://github.com/settings/apps/) and create 
 
 Give it a name, for example "My JitTrippin" and configure it as the following:
 
-1. **Homepage URL**: `JTD_PUBLIC_URL` from env OR anything else.
-2. **Redirect URI**: Set it to exactly the same value as `JTD_REDIRECT_URL` from env.
+1. **Homepage URL**: `JTD_PUBLIC_URL` from env OR anything else that you want your homepage to be
+2. **Redirect URI**: Set it to exactly the same value as `JTD_REDIRECT_URL` from env
 
 > Example: `https://jt.example.com/api/v1/auth/github/callback`
 
-3. **Expire user authorization tokens**: Enable this.
+3. **Expire user authorization tokens**: Enabled
 
 4. **Setup URL**: Set to `JTD_PUBLIC_URL` + `/api/v1/integrations/github/install-callback`
 
@@ -90,7 +88,7 @@ Give it a name, for example "My JitTrippin" and configure it as the following:
 
 ### Events:
 
-Subscribe to these events used by JitTrippin:
+Subscribe to these events:
 
 1. Installation target
 2. Meta
@@ -108,11 +106,11 @@ Subscribe to these events used by JitTrippin:
 
 ### Where can this GitHub App be installed?
 
-Choose Only on this account if you are running JitTrippin privately for yourself.
+Choose "Only on this account" if you are running JitTrippin privately for yourself.
 
-Choose Any account if you intend to let other GitHub users or organizations install your JitTrippin instance.
+Choose "Any account" if you intend to let others install your JitTrippin bot/app.
 
-Once the configuration is complete, click **Create GitHub App.**
+Finally, click **Create GitHub App.**
 
 ## Github App ID, ClientID and App Slug
 
@@ -150,14 +148,13 @@ A simple way to generate one is:
 openssl rand -hex 32
 ```
 
-Run it twice, once for each secret:
+Run it twice:
 
 ```sh
 echo "JTD_SIGNING_SECRET=$(openssl rand -hex 32)"
 echo "GITHUB_WEBHOOK_SECRET=$(openssl rand -hex 32)"
 ```
 
-This generates 32 random bytes (256 bits) and represents them as hexadecimal text.
 **Do not reuse the same value for both secrets.**
 
 ### Populate `.env`
@@ -168,8 +165,6 @@ By this point you should have every value needed from the previous steps:
 
 - your PostgreSQL connection string (step 2)
 - your GitHub App's ID, Client ID, Client Secret, App Slug, and private key path (steps 3-4)
-
-#### Put it all together:
 
 ```sh
 # --- Database ---
@@ -190,15 +185,13 @@ GITHUB_WEBHOOK_SECRET=(generated above)
 GITHUB_APP_SLUG=my-jittrippin
 ```
 
-#### Notes:
-
 1. `JTD_BIND_ADDR` is the local address `jtd` listens on; bind it to `127.0.0.1:5500` (IPv4) and let your reverse proxy handle public HTTPS
 2. `GITHUB_PRIVATE_KEY_PATH` should correctly point to the `.pem` file you downloaded from GitHub
 3. `JTD_PUBLIC_URL` and `JTD_REDIRECT_URL` must exactly match what you entered in the fields in step 3
 
-## 6. Install `jtd`
+## 6. Install `jtd` binary
 
-### Option A: Install the daemon:
+### Option A: Using `go install`:
 
 ```sh
 go install github.com/nxrmqlly/jittrippin/cmd/jtd@latest
@@ -222,8 +215,6 @@ go build -o /usr/local/bin/jtd ./cmd/jtd
 
 JitTrippin has its own user and uses the host's Docker daemon to run pipeline containers.
 
-Make a new user, give it ownership of its dir and add it to the docker group:
-
 ```sh
 sudo useradd --system --home /opt/jittrippin --shell /usr/sbin/nologin jittrippin
 sudo chown -R jittrippin:jittrippin /opt/jittrippin
@@ -238,11 +229,11 @@ sudo -u jittrippin docker ps
 
 If this does not work, `jtd` will _not_ be able to execute pipeline jobs.
 
-> The Docker group grants root-equivalent access to the host. Only give this access to a trusted service account.
+> The Docker group grants root-equivalent access. Only give this access to a trusted account you jutst created.
 
 ## 8. Configure `systemd`
 
-1. Create the service file
+Create the service file:
 
 ```sh
 sudo touch /etc/systemd/system/jittrippin.service
@@ -274,7 +265,7 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Reload systemd and start JitTrippin:
+Then run this to reload and start jtd:
 
 ```sh
 sudo systemctl daemon-reload
@@ -290,33 +281,12 @@ sudo journalctl -u jittrippin -f
 
 ## 9. Configure your reverse proxy (if you have one)
 
-Point your domain at the server and configure your reverse proxy or tunnel to forward HTTPS requests to `jtd`.
+Configure your reverse proxy / tunnel to point to `jtd` internal addr.
 
-Your public URL must match the value configured in .env:
+Your public URL must match `.env`:
 
 ```env
 JTD_PUBLIC_URL=https://jt.example.com
-```
-
-## 10. Install and use
-
-Configure the CLI:
-
-```sh
-jt daemon --set https://jt.example.com # your public url here
-jt auth login
-```
-
-Connect a repo:
-
-```sh
-jt repos add
-```
-
-And run a pipeline remotely:
-
-```sh
-jt run
 ```
 
 ## Finally, pat yourself on the back.

@@ -15,8 +15,10 @@ JitTrippin exists because YAML (for CI/CD) deserves to be thrown into a vat of l
 **With JitTrippin,**
 
 - You define your pipelines in **programmable Lua.**
-- You can choose the environment you run your pipelines. (ie. Docker, Podman, MicroVM etc.)
-- You can choose whatever Storage method you want to use for your artifacts. (ie. Disk, S3 etc.)
+- You can choose the environment you run your pipelines. (ie. Docker, Podman, MicroVM etc.)\*
+- You can choose whatever Storage method you want to use for your artifacts. (ie. Disk, S3 etc.)\*
+
+\* [implemented per server instance]
 
 Of course, choices only exist if they are implemented.
 JitTrippin is in very early development. We have Docker + Disk Storage (for artifacts) for now.
